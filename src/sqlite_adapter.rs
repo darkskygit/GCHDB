@@ -1,4 +1,6 @@
 use super::*;
+use chrono::Local;
+use std::convert::TryInto;
 
 embed_migrations!("migrations");
 
@@ -80,6 +82,34 @@ impl SqliteChatRecorder {
             .filter(records::id.eq(Some(id)))
             .execute(&self.conn.get()?)?)
     }
+
+    fn record_search(&self, query: Query) -> ChatRecordResult<Vec<Record>> {
+        use schema::records::dsl::*;
+        Ok(records
+            .filter(
+                chat_type
+                    .like(query.chat_type.unwrap_or("%%".into()))
+                    .and(owner_id.like(query.owner_id.unwrap_or("%%".into())))
+                    .and(group_id.like(query.group_id.unwrap_or("%%".into())))
+                    .and(sender.like(query.sender.unwrap_or("%%".into())))
+                    .and(content.like(query.keyword.unwrap_or("%%".into())))
+                    .and(
+                        timestamp.le(query
+                            .before
+                            .unwrap_or(Local::now().naive_utc().timestamp_millis())),
+                    )
+                    .and(timestamp.ge(query.after.unwrap_or(0))),
+            )
+            .offset(
+                query
+                    .offset
+                    .unwrap_or_default()
+                    .try_into()
+                    .unwrap_or(i64::MAX),
+            )
+            .limit(query.limit.unwrap_or(50).into())
+            .load::<Record>(&self.conn.get()?)?)
+    }
 }
 
 impl ChatRecoder for SqliteChatRecorder {
@@ -99,14 +129,31 @@ impl ChatRecoder for SqliteChatRecorder {
     }
 
     fn get_record(&self, query: Query) -> ChatRecordResult<Vec<Record>> {
-        todo!()
+        self.record_search(query)
     }
 }
 
 #[test]
 fn test_chat_record() -> ChatRecordResult<()> {
     let mut recoder = SqliteChatRecorder::new("record.db")?;
-    assert_eq!(recoder.insert_or_update_record(&Record::default())?, true);
-    assert_eq!(recoder.remove_record(1)?, true);
+    let record = Record {
+        chat_type: "testaasdavxz".into(),
+        owner_id: "asdasdasdaaaa".into(),
+        group_id: "asdasdasd".into(),
+        sender: "哈哈".into(),
+        content: "测试".into(),
+        timestamp: chrono::Local::now().naive_utc().timestamp_millis(),
+        ..Default::default()
+    };
+    assert_eq!(recoder.insert_or_update_record(&record)?, true);
+    println!(
+        "{:?}",
+        recoder.get_record(Query {
+            chat_type: Some("testaasdavxz".into()),
+            sender: Some("%哈".into()),
+            ..Default::default()
+        })?
+    );
+    assert_eq!(recoder.remove_record(record)?, true);
     Ok(())
 }

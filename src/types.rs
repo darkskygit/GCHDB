@@ -14,7 +14,7 @@ pub enum ChatRecordError {
     ContextedError(#[from] anyhow::Error),
 }
 
-#[derive(Queryable, Insertable, Serialize, Deserialize, Clone, Default, PartialEq)]
+#[derive(Queryable, Insertable, Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 #[table_name = "records"]
 pub struct Record {
     pub(crate) id: Option<i32>,
@@ -56,6 +56,17 @@ impl From<Record> for RecordType {
     }
 }
 
-pub struct Query {}
+#[derive(Clone, Debug, Default)]
+pub struct Query {
+    pub chat_type: Option<String>,
+    pub owner_id: Option<String>,
+    pub group_id: Option<String>,
+    pub sender: Option<String>,
+    pub keyword: Option<String>,
+    pub before: Option<i64>,
+    pub after: Option<i64>,
+    pub offset: Option<u64>,
+    pub limit: Option<u32>,
+}
 
 pub type ChatRecordResult<T> = Result<T, ChatRecordError>;
