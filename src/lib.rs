@@ -4,54 +4,24 @@ extern crate diesel;
 extern crate diesel_migrations;
 
 mod schema;
+mod types;
 
 use anyhow::*;
 use diesel::{
-    dsl::{exists, insert_into, select, update},
+    dsl::{delete, exists, insert_into, select, update},
     prelude::*,
-    r2d2::{ConnectionManager, Pool, PoolError},
-    result::Error as DieselError,
+    r2d2::{ConnectionManager, Pool},
     sqlite::SqliteConnection,
 };
-use schema::*;
-use serde::{Deserialize, Serialize};
 use std::path::Path;
-use thiserror::*;
+use types::*;
 
 embed_migrations!("migrations");
 
-#[derive(Debug, Error)]
-pub enum ChatRecordError {
-    #[error(transparent)]
-    DatabaseError(#[from] PoolError),
-    #[error(transparent)]
-    DieselError(#[from] DieselError),
-    #[error(transparent)]
-    ContextedError(#[from] anyhow::Error),
-}
-
-#[derive(Queryable, Insertable, Serialize, Deserialize, Clone, Default, PartialEq)]
-#[table_name = "records"]
-pub struct Record {
-    id: Option<i32>,
-    pub chat_type: String,
-    pub owner_id: String,
-    pub group_id: String,
-    pub sender: String,
-    pub content: String,
-    pub timestamp: i64,
-    pub metadata: Option<Vec<u8>>,
-}
-
-impl Record {
-    pub fn get_id(&self) -> i32 {
-        self.id.unwrap_or_default()
-    }
-}
-
 pub trait ChatRecoder {
-    fn insert_or_update_record(&mut self, record: &Record) -> Result<bool, ChatRecordError>;
-    fn remove_record(&mut self, id: i64) -> Result<(), ChatRecordError>;
+    fn insert_or_update_record(&mut self, record: &Record) -> ChatRecordResult<bool>;
+    fn remove_record<R: Into<RecordType>>(&mut self, record: R) -> ChatRecordResult<bool>;
+    fn get_record(&self, query: Query) -> ChatRecordResult<Vec<Record>>;
 }
 
 pub struct SqliteChatRecorder {
@@ -59,7 +29,7 @@ pub struct SqliteChatRecorder {
 }
 
 impl SqliteChatRecorder {
-    pub fn new<P: AsRef<Path>>(db_name: P) -> Result<Self, ChatRecordError> {
+    pub fn new<P: AsRef<Path>>(db_name: P) -> ChatRecordResult<Self> {
         let manager = ConnectionManager::<SqliteConnection>::new(
             db_name.as_ref().to_str().unwrap_or("sqlite://record.db"),
         );
@@ -74,7 +44,7 @@ impl SqliteChatRecorder {
         Ok(Self { conn: pool })
     }
 
-    pub fn record_exists(&self, record: &Record) -> Result<bool, ChatRecordError> {
+    pub fn record_exists(&self, record: &Record) -> ChatRecordResult<bool> {
         use schema::records::dsl::*;
         Ok(select(exists(
             records.filter(
@@ -89,15 +59,15 @@ impl SqliteChatRecorder {
         .unwrap_or(false))
     }
 
-    fn record_update(&mut self, record: &Record) -> Result<usize, ChatRecordError> {
+    fn record_update(&mut self, record: &Record) -> ChatRecordResult<usize> {
         use schema::records::dsl::*;
         Ok(update(
             records.filter(
-                chat_type
+                id.eq(record.id).or(chat_type
                     .eq(&record.chat_type)
                     .and(owner_id.eq(&record.owner_id))
                     .and(group_id.eq(&record.group_id))
-                    .and(timestamp.eq(record.timestamp)),
+                    .and(timestamp.eq(record.timestamp))),
             ),
         )
         .set((
@@ -108,15 +78,34 @@ impl SqliteChatRecorder {
         .execute(&self.conn.get()?)?)
     }
 
-    fn record_insert(&mut self, record: &Record) -> Result<usize, ChatRecordError> {
+    fn record_insert(&mut self, record: &Record) -> ChatRecordResult<usize> {
         Ok(insert_into(records::table)
             .values(record)
+            .execute(&self.conn.get()?)?)
+    }
+
+    fn record_remove(&mut self, record: &Record) -> ChatRecordResult<usize> {
+        use schema::records::{dsl::*, table};
+        Ok(delete(table)
+            .filter(
+                id.eq(record.id).or(chat_type
+                    .eq(&record.chat_type)
+                    .and(owner_id.eq(&record.owner_id))
+                    .and(group_id.eq(&record.group_id))
+                    .and(timestamp.eq(record.timestamp))),
+            )
+            .execute(&self.conn.get()?)?)
+    }
+
+    fn record_remove_by_id(&mut self, id: i32) -> ChatRecordResult<usize> {
+        Ok(delete(records::table)
+            .filter(records::id.eq(Some(id)))
             .execute(&self.conn.get()?)?)
     }
 }
 
 impl ChatRecoder for SqliteChatRecorder {
-    fn insert_or_update_record(&mut self, record: &Record) -> Result<bool, ChatRecordError> {
+    fn insert_or_update_record(&mut self, record: &Record) -> ChatRecordResult<bool> {
         Ok(if self.record_exists(&record)? {
             self.record_update(record)
         } else {
@@ -124,14 +113,22 @@ impl ChatRecoder for SqliteChatRecorder {
         }? == 1)
     }
 
-    fn remove_record(&mut self, id: i64) -> Result<(), ChatRecordError> {
-        Ok(())
+    fn remove_record<R: Into<RecordType>>(&mut self, record: R) -> ChatRecordResult<bool> {
+        Ok(match record.into() {
+            RecordType::Id(id) => self.record_remove_by_id(id),
+            RecordType::Record(record) => self.record_remove(&record),
+        }? == 1)
+    }
+
+    fn get_record(&self, query: Query) -> ChatRecordResult<Vec<Record>> {
+        todo!()
     }
 }
 
 #[test]
-fn test_chat_record() -> Result<(), ChatRecordError> {
-    let mut recoder = SqliteChatRecorder::new("test.db")?;
-    recoder.insert_or_update_record(&Record::default())?;
+fn test_chat_record() -> ChatRecordResult<()> {
+    let mut recoder = SqliteChatRecorder::new("record.db")?;
+    assert_eq!(recoder.insert_or_update_record(&Record::default())?, true);
+    assert_eq!(recoder.remove_record(1)?, true);
     Ok(())
 }
