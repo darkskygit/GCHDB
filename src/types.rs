@@ -33,6 +33,12 @@ impl Record {
     }
 }
 
+pub trait ChatRecoder {
+    fn insert_or_update_record(&mut self, record: &Record) -> ChatRecordResult<bool>;
+    fn remove_record<R: Into<RecordType>>(&mut self, record: R) -> ChatRecordResult<bool>;
+    fn get_record(&self, query: Query) -> ChatRecordResult<Vec<Record>>;
+}
+
 pub enum RecordType {
     Id(i32),
     Record(Record),
