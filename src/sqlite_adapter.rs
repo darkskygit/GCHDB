@@ -1,6 +1,4 @@
 use super::*;
-use chrono::Local;
-use std::convert::TryInto;
 
 embed_migrations!("migrations");
 
@@ -83,32 +81,36 @@ impl SqliteChatRecorder {
             .execute(&self.conn.get()?)?)
     }
 
-    fn record_search(&self, query: Query) -> ChatRecordResult<Vec<Record>> {
+    fn record_search(&self, keyword: &str) -> ChatRecordResult<Vec<i32>> {
+        Ok(vec![])
+    }
+
+    fn record_query(&self, query: Query) -> ChatRecordResult<Vec<Record>> {
         use schema::records::dsl::*;
-        Ok(records
-            .filter(
-                chat_type
-                    .like(query.chat_type.unwrap_or("%%".into()))
-                    .and(owner_id.like(query.owner_id.unwrap_or("%%".into())))
-                    .and(group_id.like(query.group_id.unwrap_or("%%".into())))
-                    .and(sender.like(query.sender.unwrap_or("%%".into())))
-                    .and(content.like(query.keyword.unwrap_or("%%".into())))
-                    .and(
-                        timestamp.le(query
-                            .before
-                            .unwrap_or(Local::now().naive_utc().timestamp_millis())),
-                    )
-                    .and(timestamp.ge(query.after.unwrap_or(0))),
-            )
-            .offset(
-                query
-                    .offset
-                    .unwrap_or_default()
-                    .try_into()
-                    .unwrap_or(i64::MAX),
-            )
-            .limit(query.limit.unwrap_or(50).into())
-            .load::<Record>(&self.conn.get()?)?)
+        let default_query = records.filter(
+            timestamp
+                .le(query.before.unwrap_or(get_now()))
+                .and(timestamp.ge(query.after.unwrap_or(0))),
+        );
+        Ok(if let Some(keyword) = &query.keyword {
+            default_query
+                .filter(id.eq_any(self.record_search(keyword)?))
+                .offset(query.get_offset())
+                .limit(query.get_limit())
+                .load::<Record>(&self.conn.get()?)?
+        } else {
+            default_query
+                .filter(
+                    chat_type
+                        .like(query.get_chat_type())
+                        .and(owner_id.like(query.get_owner_id()))
+                        .and(group_id.like(query.get_group_id()))
+                        .and(sender.like(query.get_sender())),
+                )
+                .offset(query.get_offset())
+                .limit(query.get_limit())
+                .load::<Record>(&self.conn.get()?)?
+        })
     }
 }
 
@@ -129,7 +131,7 @@ impl ChatRecoder for SqliteChatRecorder {
     }
 
     fn get_record(&self, query: Query) -> ChatRecordResult<Vec<Record>> {
-        self.record_search(query)
+        self.record_query(query)
     }
 }
 

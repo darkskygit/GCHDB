@@ -6,6 +6,7 @@ extern crate diesel_migrations;
 mod schema;
 mod sqlite_adapter;
 mod types;
+mod utils;
 
 use anyhow::*;
 use diesel::{
@@ -16,6 +17,7 @@ use diesel::{
 };
 use std::path::Path;
 use types::*;
+use utils::*;
 
 pub use sqlite_adapter::SqliteChatRecorder;
 pub use types::{ChatRecoder, ChatRecordError, Query};
