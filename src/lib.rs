@@ -6,10 +6,11 @@ extern crate diesel_migrations;
 mod schema;
 
 use anyhow::*;
-use chrono::{DateTime, Utc};
 use diesel::{
+    dsl::{exists, insert_into, select, update},
     prelude::*,
-    r2d2::{ConnectionManager, Pool, PoolError, PooledConnection},
+    r2d2::{ConnectionManager, Pool, PoolError},
+    result::Error as DieselError,
     sqlite::SqliteConnection,
 };
 use schema::*;
@@ -23,6 +24,8 @@ embed_migrations!("migrations");
 pub enum ChatRecordError {
     #[error(transparent)]
     DatabaseError(#[from] PoolError),
+    #[error(transparent)]
+    DieselError(#[from] DieselError),
     #[error(transparent)]
     ContextedError(#[from] anyhow::Error),
 }
@@ -47,7 +50,7 @@ impl Record {
 }
 
 pub trait ChatRecoder {
-    fn insert_or_update_record(&mut self, record: &Record) -> Result<(), ChatRecordError>;
+    fn insert_or_update_record(&mut self, record: &Record) -> Result<bool, ChatRecordError>;
     fn remove_record(&mut self, id: i64) -> Result<(), ChatRecordError>;
 }
 
@@ -72,33 +75,55 @@ impl SqliteChatRecorder {
     }
 
     pub fn record_exists(&self, record: &Record) -> Result<bool, ChatRecordError> {
-        use diesel::dsl::{exists, select};
         use schema::records::dsl::*;
         Ok(select(exists(
             records.filter(
                 chat_type
                     .eq(&record.chat_type)
                     .and(owner_id.eq(&record.owner_id))
-                    .and(
-                        group_id
-                            .eq(&record.group_id)
-                            .and(timestamp.eq(record.timestamp)),
-                    ),
+                    .and(group_id.eq(&record.group_id))
+                    .and(timestamp.eq(record.timestamp)),
             ),
         ))
         .get_result(&self.conn.get()?)
         .unwrap_or(false))
     }
+
+    fn record_update(&mut self, record: &Record) -> Result<usize, ChatRecordError> {
+        use schema::records::dsl::*;
+        Ok(update(
+            records.filter(
+                chat_type
+                    .eq(&record.chat_type)
+                    .and(owner_id.eq(&record.owner_id))
+                    .and(group_id.eq(&record.group_id))
+                    .and(timestamp.eq(record.timestamp)),
+            ),
+        )
+        .set((
+            sender.eq(&record.sender),
+            content.eq(&record.content),
+            metadata.eq(&record.metadata),
+        ))
+        .execute(&self.conn.get()?)?)
+    }
+
+    fn record_insert(&mut self, record: &Record) -> Result<usize, ChatRecordError> {
+        Ok(insert_into(records::table)
+            .values(record)
+            .execute(&self.conn.get()?)?)
+    }
 }
 
 impl ChatRecoder for SqliteChatRecorder {
-    fn insert_or_update_record(&mut self, record: &Record) -> Result<(), ChatRecordError> {
-        if self.record_exists(&record)? {
-            
+    fn insert_or_update_record(&mut self, record: &Record) -> Result<bool, ChatRecordError> {
+        Ok(if self.record_exists(&record)? {
+            self.record_update(record)
         } else {
-        }
-        Ok(())
+            self.record_insert(record)
+        }? == 1)
     }
+
     fn remove_record(&mut self, id: i64) -> Result<(), ChatRecordError> {
         Ok(())
     }
