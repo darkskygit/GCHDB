@@ -2,7 +2,10 @@
 extern crate diesel;
 #[macro_use]
 extern crate diesel_migrations;
+#[macro_use]
+extern crate tantivy;
 
+mod indexer;
 mod schema;
 mod sqlite_adapter;
 mod types;
@@ -19,5 +22,6 @@ use std::path::Path;
 use types::*;
 use utils::*;
 
+pub use indexer::ContentIndexer;
 pub use sqlite_adapter::SqliteChatRecorder;
 pub use types::{ChatRecoder, ChatRecordError, Query};

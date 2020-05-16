@@ -6,9 +6,14 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-anyhow = "1.0.30"
+anyhow = "1.0.31"
+cang-jie = "0.8.0"
 chrono = "0.4.11"
-thiserror = "1.0.17"
+futures = "0.3.5"
+lindera-tantivy = "0.1.1"
+log = "0.4.8"
+num_cpus = "1.13.0"
+thiserror = "1.0.18"
 
 [dependencies.diesel]
 version = "1.4.4"
@@ -24,3 +29,8 @@ features = ["bundled"]
 [dependencies.serde]
 version = "1.0.110"
 features = ["derive"]
+
+[dependencies.tantivy]
+version = "0.12.0"
+default-features = false
+features = ["lz4-compression"]
