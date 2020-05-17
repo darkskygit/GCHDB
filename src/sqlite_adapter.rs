@@ -28,7 +28,7 @@ impl SqliteChatRecorder {
         Ok(recoder)
     }
 
-    fn refresh_index(&mut self) -> ChatRecordResult<()> {
+    pub fn refresh_index(&mut self) -> ChatRecordResult<()> {
         self.indexer.cleanup_index()?;
         self.indexer.gen_index(self.record_all()?)?;
         Ok(())
@@ -42,6 +42,7 @@ impl SqliteChatRecorder {
                     .eq(&record.chat_type)
                     .and(owner_id.eq(&record.owner_id))
                     .and(group_id.eq(&record.group_id))
+                    .and(sender.eq(&record.sender))
                     .and(timestamp.eq(record.timestamp)),
             ),
         ))
@@ -57,14 +58,11 @@ impl SqliteChatRecorder {
                     .eq(&record.chat_type)
                     .and(owner_id.eq(&record.owner_id))
                     .and(group_id.eq(&record.group_id))
+                    .and(sender.eq(&record.sender))
                     .and(timestamp.eq(record.timestamp))),
             ),
         )
-        .set((
-            sender.eq(&record.sender),
-            content.eq(&record.content),
-            metadata.eq(&record.metadata),
-        ))
+        .set((content.eq(&record.content), metadata.eq(&record.metadata)))
         .execute(&self.conn.get()?)?)
     }
 

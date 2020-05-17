@@ -35,7 +35,7 @@ impl From<QueryParserError> for ChatRecordError {
 #[derive(Queryable, Insertable, Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 #[table_name = "records"]
 pub struct Record {
-    pub(crate) id: Option<i32>,
+    pub id: Option<i32>,
     pub chat_type: String,
     pub owner_id: String,
     pub group_id: String,
