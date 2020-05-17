@@ -34,7 +34,7 @@ impl SqliteChatRecorder {
         Ok(())
     }
 
-    pub fn record_exists(&self, record: &Record) -> ChatRecordResult<bool> {
+    fn record_exists(&self, record: &Record) -> ChatRecordResult<bool> {
         use schema::records::dsl::*;
         Ok(select(exists(
             records.filter(
