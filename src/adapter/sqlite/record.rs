@@ -62,3 +62,18 @@ pub fn remove_record_by_id(conn: &SqliteConnection, id: i32) -> ChatRecordResult
         .filter(records::id.eq(Some(id)))
         .execute(conn)?)
 }
+
+pub fn get_record_id(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<i32> {
+    use schema::records::dsl::*;
+    Ok(records
+        .filter(
+            id.eq(record.id).or(chat_type
+                .eq(&record.chat_type)
+                .and(owner_id.eq(&record.owner_id))
+                .and(group_id.eq(&record.group_id))
+                .and(timestamp.eq(record.timestamp))),
+        )
+        .select(id)
+        .get_result::<Option<i32>>(conn)?
+        .unwrap_or(0))
+}

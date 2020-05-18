@@ -5,7 +5,7 @@ mod record;
 use super::*;
 use attach::{insert_or_update_attach, remove_attachs};
 use blob::{insert_blob, remove_blob};
-use record::{insert_or_update_record, remove_record, remove_record_by_id};
+use record::{get_record_id, insert_or_update_record, remove_record, remove_record_by_id};
 use std::collections::HashMap;
 
 use anyhow::*;
@@ -94,11 +94,16 @@ impl SqliteChatRecorder {
         let conn = self.conn.get()?;
         Ok(insert_or_update_record(&conn, record)? && {
             let mut len = 0;
-            for (name, blob) in attachs.iter() {
-                insert_or_update_attach(&conn, blob.clone(), name.clone(), record.get_id())?;
-                len += 1;
+            let record_id = get_record_id(&conn, &record)?;
+            if record_id > 0 {
+                for (name, blob) in attachs.iter() {
+                    insert_or_update_attach(&conn, blob.clone(), name.clone(), record_id)?;
+                    len += 1;
+                }
+                len
+            } else {
+                0
             }
-            len
         } == attachs.len())
     }
 }
@@ -147,6 +152,25 @@ fn test_chat_record() -> ChatRecordResult<()> {
         ..Default::default()
     };
     assert_eq!(recoder.insert_or_update_record(&record)?, true);
+    let record1 = Record {
+        chat_type: "testaasdavxz".into(),
+        owner_id: "asdasdasdaaaa".into(),
+        group_id: "asdasdasd".into(),
+        sender: "新闻".into(),
+        content: "Intel线路图显示他们想恢复两年升级一次工艺，2029年有1.4nm".into(),
+        timestamp: chrono::Local::now().naive_utc().timestamp_millis(),
+        ..Default::default()
+    };
+    assert_eq!(
+        recoder.insert_or_update_record((
+            &record1,
+            [("test".into(), vec![0, 1, 2, 3])]
+                .iter()
+                .cloned()
+                .collect()
+        ))?,
+        true
+    );
     recoder.refresh_index()?;
     println!(
         "{:?}",
