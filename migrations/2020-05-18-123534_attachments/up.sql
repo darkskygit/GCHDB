@@ -1,0 +1,11 @@
+-- Your SQL goes here
+CREATE TABLE attachments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  record_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  hash BIGINT NOT NULL
+);
+CREATE TABLE blobs (
+  hash BIGINT PRIMARY KEY NOT NULL,
+  blob BLOB NOT NULL
+);

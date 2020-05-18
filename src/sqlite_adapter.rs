@@ -129,22 +129,120 @@ impl SqliteChatRecorder {
                 .load::<Record>(&self.conn.get()?)?
         })
     }
-}
 
-impl ChatRecoder for SqliteChatRecorder {
-    fn insert_or_update_record(&mut self, record: &Record) -> ChatRecordResult<bool> {
+    fn record_auto_insert(&mut self, record: &Record) -> ChatRecordResult<bool> {
         Ok(if self.record_exists(&record)? {
-            self.record_update(record)
+            self.record_update(&record)
         } else {
-            self.record_insert(record)
+            self.record_insert(&record)
         }? == 1)
     }
 
-    fn remove_record<R: Into<RecordType>>(&mut self, record: R) -> ChatRecordResult<bool> {
-        Ok(match record.into() {
-            RecordType::Id(id) => self.record_remove_by_id(id),
-            RecordType::Record(record) => self.record_remove(&record),
+    fn attach_exists(&self, attach: &Attachment) -> ChatRecordResult<bool> {
+        use schema::attachments::dsl::*;
+        Ok(select(exists(attachments.filter(
+            record_id.eq(&attach.record_id).and(name.eq(&attach.name)),
+        )))
+        .get_result(&self.conn.get()?)
+        .unwrap_or(false))
+    }
+
+    fn attach_update(&mut self, attach: &Attachment) -> ChatRecordResult<usize> {
+        use schema::attachments::dsl::*;
+        Ok(
+            update(attachments.filter(record_id.eq(&attach.record_id).and(name.eq(&attach.name))))
+                .set(hash.eq(&attach.hash))
+                .execute(&self.conn.get()?)?,
+        )
+    }
+
+    fn attach_insert(&mut self, attach: &Attachment) -> ChatRecordResult<usize> {
+        Ok(insert_into(attachments::table)
+            .values(attach)
+            .execute(&self.conn.get()?)?)
+    }
+
+    fn attach_remove(&mut self, attach: &Attachment) -> ChatRecordResult<usize> {
+        use schema::attachments::{dsl::*, table};
+        Ok(delete(table)
+            .filter(
+                id.eq(attach.id)
+                    .or(record_id.eq(&attach.record_id).and(name.eq(&attach.name))),
+            )
+            .execute(&self.conn.get()?)?)
+    }
+
+    fn attach_auto_insert(&mut self, attach: &Attachment) -> ChatRecordResult<bool> {
+        Ok(if self.attach_exists(&attach)? {
+            self.attach_update(&attach)
+        } else {
+            self.attach_insert(&attach)
         }? == 1)
+    }
+
+    fn auto_insert(
+        &mut self,
+        record: &Record,
+        attachs: Vec<&Attachment>,
+    ) -> ChatRecordResult<bool> {
+        Ok(self.record_auto_insert(&record)?
+            && attachs
+                .iter()
+                .filter(|attach| self.attach_auto_insert(attach).unwrap_or(false))
+                .count()
+                == attachs.len())
+    }
+
+    fn auto_remove(
+        &mut self,
+        record: &Record,
+        attachs: Vec<&Attachment>,
+    ) -> ChatRecordResult<bool> {
+        Ok(self.record_remove(&record)? == 1
+            && attachs
+                .iter()
+                .filter(|attach| self.attach_remove(attach).unwrap_or(0) == 1)
+                .count()
+                == attachs.len())
+    }
+}
+
+impl<'a> ChatRecoder<'a> for SqliteChatRecorder {
+    fn insert_or_update_record<R: Into<RecordType<'a>>>(
+        &mut self,
+        record: R,
+    ) -> ChatRecordResult<bool> {
+        Ok(match record.into() {
+            RecordType::Id(_) => false,
+            RecordType::Record(record) => self.record_auto_insert(&record)?,
+            RecordType::RecordRef(record) => self.record_auto_insert(record)?,
+            RecordType::RecordWithAttachs { record, attachs } => {
+                self.auto_insert(&record, attachs.iter().map(|i| &*i).collect())?
+            }
+            RecordType::RecordRefWithAttachs { record, attachs } => {
+                self.auto_insert(record, attachs.iter().map(|i| &*i).collect())?
+            }
+            RecordType::RecordRefWithAttachsRef { record, attachs } => {
+                self.auto_insert(record, attachs)?
+            }
+        })
+    }
+
+    fn remove_record<R: Into<RecordType<'a>>>(&mut self, record: R) -> ChatRecordResult<bool> {
+        Ok(match record.into() {
+            RecordType::Id(id) => self.record_remove_by_id(id)? == 1,
+            RecordType::Record(record) => self.record_remove(&record)? == 1,
+            RecordType::RecordRef(record) => self.record_remove(record)? == 1,
+            RecordType::RecordWithAttachs { record, attachs } => {
+                self.auto_remove(&record, attachs.iter().map(|i| &*i).collect())?
+            }
+            RecordType::RecordRefWithAttachs { record, attachs } => {
+                self.auto_remove(record, attachs.iter().map(|i| &*i).collect())?
+            }
+            RecordType::RecordRefWithAttachsRef { record, attachs } => {
+                self.auto_remove(record, attachs)?
+            }
+        })
     }
 
     fn get_record(&self, query: Query) -> ChatRecordResult<Vec<Record>> {

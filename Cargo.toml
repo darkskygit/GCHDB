@@ -10,9 +10,11 @@ anyhow = "1.0.31"
 cang-jie = "0.8.0"
 chrono = "0.4.11"
 futures = "0.3.5"
+lazy_static = "1.4.0"
 lindera-tantivy = "0.1.1"
 log = "0.4.8"
 num_cpus = "1.13.0"
+sha3 = "0.8.2"
 thiserror = "1.0.18"
 
 [dependencies.diesel]

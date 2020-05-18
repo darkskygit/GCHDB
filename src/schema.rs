@@ -1,4 +1,20 @@
 table! {
+    attachments (id) {
+        id -> Nullable<Integer>,
+        record_id -> Integer,
+        name -> Text,
+        hash -> BigInt,
+    }
+}
+
+table! {
+    blobs (hash) {
+        hash -> BigInt,
+        blob -> Binary,
+    }
+}
+
+table! {
     records (id) {
         id -> Nullable<Integer>,
         chat_type -> Text,
@@ -10,3 +26,9 @@ table! {
         metadata -> Nullable<Binary>,
     }
 }
+
+allow_tables_to_appear_in_same_query!(
+    attachments,
+    blobs,
+    records,
+);
