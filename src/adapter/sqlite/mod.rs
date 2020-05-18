@@ -1,4 +1,13 @@
+mod attach;
+mod blob;
+mod record;
+
 use super::*;
+use attach::{insert_or_update_attach, remove_attachs};
+use blob::{insert_blob, remove_blob};
+use record::{insert_or_update_record, remove_record, remove_record_by_id};
+use std::collections::HashMap;
+
 use anyhow::*;
 use diesel::{
     dsl::{delete, exists, insert_into, select, update},
@@ -42,67 +51,6 @@ impl SqliteChatRecorder {
         Ok(())
     }
 
-    fn record_exists(&self, record: &Record) -> ChatRecordResult<bool> {
-        use schema::records::dsl::*;
-        Ok(select(exists(
-            records.filter(
-                chat_type
-                    .eq(&record.chat_type)
-                    .and(owner_id.eq(&record.owner_id))
-                    .and(group_id.eq(&record.group_id))
-                    .and(sender.eq(&record.sender))
-                    .and(timestamp.eq(record.timestamp)),
-            ),
-        ))
-        .get_result(&self.conn.get()?)
-        .unwrap_or(false))
-    }
-
-    fn record_update(&mut self, record: &Record) -> ChatRecordResult<usize> {
-        use schema::records::dsl::*;
-        Ok(update(
-            records.filter(
-                id.eq(record.id).or(chat_type
-                    .eq(&record.chat_type)
-                    .and(owner_id.eq(&record.owner_id))
-                    .and(group_id.eq(&record.group_id))
-                    .and(sender.eq(&record.sender))
-                    .and(timestamp.eq(record.timestamp))),
-            ),
-        )
-        .set((content.eq(&record.content), metadata.eq(&record.metadata)))
-        .execute(&self.conn.get()?)?)
-    }
-
-    fn record_insert(&mut self, record: &Record) -> ChatRecordResult<usize> {
-        Ok(insert_into(records::table)
-            .values(record)
-            .execute(&self.conn.get()?)?)
-    }
-
-    fn record_remove(&mut self, record: &Record) -> ChatRecordResult<usize> {
-        use schema::records::{dsl::*, table};
-        Ok(delete(table)
-            .filter(
-                id.eq(record.id).or(chat_type
-                    .eq(&record.chat_type)
-                    .and(owner_id.eq(&record.owner_id))
-                    .and(group_id.eq(&record.group_id))
-                    .and(timestamp.eq(record.timestamp))),
-            )
-            .execute(&self.conn.get()?)?)
-    }
-
-    fn record_remove_by_id(&mut self, id: i32) -> ChatRecordResult<usize> {
-        Ok(delete(records::table)
-            .filter(records::id.eq(Some(id)))
-            .execute(&self.conn.get()?)?)
-    }
-
-    fn record_search(&self, offset: i64, limit: i64, keyword: &str) -> ChatRecordResult<Vec<i32>> {
-        Ok(self.indexer.search(offset, limit, keyword)?)
-    }
-
     fn record_all(&self) -> ChatRecordResult<Vec<Record>> {
         use schema::records::dsl::*;
         Ok(records.load::<Record>(&self.conn.get()?)?)
@@ -117,7 +65,7 @@ impl SqliteChatRecorder {
         );
         Ok(if let Some(keyword) = &query.keyword {
             default_query
-                .filter(id.eq_any(self.record_search(
+                .filter(id.eq_any(self.indexer.search(
                     query.get_offset(),
                     query.get_limit(),
                     keyword,
@@ -138,85 +86,20 @@ impl SqliteChatRecorder {
         })
     }
 
-    fn attach_exists(&self, attach: &Attachment) -> ChatRecordResult<bool> {
-        use schema::attachments::dsl::*;
-        Ok(select(exists(attachments.filter(
-            record_id.eq(&attach.record_id).and(name.eq(&attach.name)),
-        )))
-        .get_result(&self.conn.get()?)
-        .unwrap_or(false))
-    }
-
-    fn attach_update(&mut self, attach: &Attachment) -> ChatRecordResult<usize> {
-        use schema::attachments::dsl::*;
-        Ok(
-            update(attachments.filter(record_id.eq(&attach.record_id).and(name.eq(&attach.name))))
-                .set(hash.eq(&attach.hash))
-                .execute(&self.conn.get()?)?,
-        )
-    }
-
-    fn attach_insert(&mut self, attach: &Attachment) -> ChatRecordResult<usize> {
-        Ok(insert_into(attachments::table)
-            .values(attach)
-            .execute(&self.conn.get()?)?)
-    }
-
-    fn attach_remove(&mut self, attach: &Attachment) -> ChatRecordResult<usize> {
-        use schema::attachments::{dsl::*, table};
-        Ok(delete(table)
-            .filter(
-                id.eq(attach.id)
-                    .or(record_id.eq(&attach.record_id).and(name.eq(&attach.name))),
-            )
-            .execute(&self.conn.get()?)?)
-    }
-
-    fn attachs_remove(&mut self, record_id: i32) -> ChatRecordResult<bool> {
-        let attachs = self.attach_query(record_id)?;
-        Ok(attachs
-            .iter()
-            .filter(|attach| self.attach_remove(attach).unwrap_or(0) == 1)
-            .count()
-            == attachs.len())
-    }
-
-    fn attach_auto_insert(&mut self, attach: &Attachment) -> ChatRecordResult<bool> {
-        Ok(if self.attach_exists(&attach)? {
-            self.attach_update(&attach)
-        } else {
-            self.attach_insert(&attach)
-        }? == 1)
-    }
-
-    fn attach_query(&self, record_id: i32) -> ChatRecordResult<Vec<Attachment>> {
-        use schema::attachments::dsl;
-        Ok(dsl::attachments
-            .filter(dsl::record_id.eq(record_id))
-            .load(&self.conn.get()?)?)
-    }
-
-    fn blob_insert(&mut self, blob: &Blob) -> ChatRecordResult<usize> {
-        Ok(insert_into(blobs::table)
-            .values(blob)
-            .execute(&self.conn.get()?)?)
-    }
-
     fn record_auto_insert(
         &mut self,
         record: &Record,
-        attachs: Vec<Attachment>,
+        attachs: HashMap<String, Vec<u8>>,
     ) -> ChatRecordResult<bool> {
-        Ok(if self.record_exists(&record)? {
-            self.record_update(&record)
-        } else {
-            self.record_insert(&record)
-        }? == 1
-            && attachs
-                .iter()
-                .filter(|attach| self.attach_auto_insert(attach).unwrap_or(false))
-                .count()
-                == attachs.len())
+        let conn = self.conn.get()?;
+        Ok(insert_or_update_record(&conn, record)? && {
+            let mut len = 0;
+            for (name, blob) in attachs.iter() {
+                insert_or_update_attach(&conn, blob.clone(), name.clone(), record.get_id())?;
+                len += 1;
+            }
+            len
+        } == attachs.len())
     }
 }
 
@@ -227,30 +110,19 @@ impl<'a> ChatRecoder<'a> for SqliteChatRecorder {
     ) -> ChatRecordResult<bool> {
         Ok(match record.into() {
             RecordType::Id(_) => false,
-            RecordType::Record(record) => self.record_auto_insert(&record, vec![])?,
+            RecordType::Record(record) => self.record_auto_insert(&record, Default::default())?,
             RecordType::RecordWithAttachs { record, attachs } => {
-                let attachs = attachs
-                    .iter()
-                    .filter_map(|(name, blob)| {
-                        let blob = Blob::new(blob.clone());
-                        self.blob_insert(&blob)
-                            .map(|ret| (ret, name, blob.hash))
-                            .map_err(|e| warn!("Failed to insert blob: {}", e))
-                            .ok()
-                    })
-                    .filter(|(ret, _, _)| *ret == 1)
-                    .map(|(_, name, hash)| Attachment::new(hash, name.clone(), record.get_id()))
-                    .collect();
                 self.record_auto_insert(&record, attachs)?
             }
         })
     }
 
     fn remove_record<R: Into<RecordType<'a>>>(&mut self, record: R) -> ChatRecordResult<bool> {
+        let conn = self.conn.get()?;
         Ok(match record.into() {
-            RecordType::Id(id) => self.record_remove_by_id(id)? == 1,
+            RecordType::Id(id) => remove_record_by_id(&conn, id)? == 1,
             RecordType::Record(record) | RecordType::RecordWithAttachs { record, .. } => {
-                self.record_remove(&record)? == 1 && self.attachs_remove(record.get_id())?
+                remove_record(&conn, &record)? == 1 && remove_attachs(&conn, record.get_id())?
             }
         })
     }
