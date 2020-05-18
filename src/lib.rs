@@ -5,23 +5,15 @@ extern crate diesel_migrations;
 #[macro_use]
 extern crate tantivy;
 
+mod adapter;
 mod indexer;
 mod schema;
-mod sqlite_adapter;
 mod types;
 mod utils;
 
-use anyhow::*;
-use diesel::{
-    dsl::{delete, exists, insert_into, select, update},
-    prelude::*,
-    r2d2::{ConnectionManager, Pool},
-    sqlite::SqliteConnection,
-};
-use std::path::Path;
 use types::*;
 use utils::*;
 
+pub use adapter::SqliteChatRecorder;
 pub use indexer::ContentIndexer;
-pub use sqlite_adapter::SqliteChatRecorder;
 pub use types::{ChatRecoder, ChatRecordError, Query, Record};
