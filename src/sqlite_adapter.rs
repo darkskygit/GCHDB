@@ -172,12 +172,28 @@ impl SqliteChatRecorder {
             .execute(&self.conn.get()?)?)
     }
 
+    fn attachs_remove(&mut self, record_id: i32) -> ChatRecordResult<bool> {
+        let attachs = self.attach_query(record_id)?;
+        Ok(attachs
+            .iter()
+            .filter(|attach| self.attach_remove(attach).unwrap_or(0) == 1)
+            .count()
+            == attachs.len())
+    }
+
     fn attach_auto_insert(&mut self, attach: &Attachment) -> ChatRecordResult<bool> {
         Ok(if self.attach_exists(&attach)? {
             self.attach_update(&attach)
         } else {
             self.attach_insert(&attach)
         }? == 1)
+    }
+
+    fn attach_query(&self, record_id: i32) -> ChatRecordResult<Vec<Attachment>> {
+        use schema::attachments::dsl;
+        Ok(dsl::attachments
+            .filter(dsl::record_id.eq(record_id))
+            .load(&self.conn.get()?)?)
     }
 
     fn auto_insert(
@@ -189,19 +205,6 @@ impl SqliteChatRecorder {
             && attachs
                 .iter()
                 .filter(|attach| self.attach_auto_insert(attach).unwrap_or(false))
-                .count()
-                == attachs.len())
-    }
-
-    fn auto_remove(
-        &mut self,
-        record: &Record,
-        attachs: Vec<&Attachment>,
-    ) -> ChatRecordResult<bool> {
-        Ok(self.record_remove(&record)? == 1
-            && attachs
-                .iter()
-                .filter(|attach| self.attach_remove(attach).unwrap_or(0) == 1)
                 .count()
                 == attachs.len())
     }
@@ -231,16 +234,13 @@ impl<'a> ChatRecoder<'a> for SqliteChatRecorder {
     fn remove_record<R: Into<RecordType<'a>>>(&mut self, record: R) -> ChatRecordResult<bool> {
         Ok(match record.into() {
             RecordType::Id(id) => self.record_remove_by_id(id)? == 1,
-            RecordType::Record(record) => self.record_remove(&record)? == 1,
-            RecordType::RecordRef(record) => self.record_remove(record)? == 1,
-            RecordType::RecordWithAttachs { record, attachs } => {
-                self.auto_remove(&record, attachs.iter().map(|i| &*i).collect())?
+            RecordType::Record(record) | RecordType::RecordWithAttachs { record, .. } => {
+                self.record_remove(&record)? == 1 && self.attachs_remove(record.get_id())?
             }
-            RecordType::RecordRefWithAttachs { record, attachs } => {
-                self.auto_remove(record, attachs.iter().map(|i| &*i).collect())?
-            }
-            RecordType::RecordRefWithAttachsRef { record, attachs } => {
-                self.auto_remove(record, attachs)?
+            RecordType::RecordRef(record)
+            | RecordType::RecordRefWithAttachs { record, .. }
+            | RecordType::RecordRefWithAttachsRef { record, .. } => {
+                self.record_remove(record)? == 1 && self.attachs_remove(record.get_id())?
             }
         })
     }
