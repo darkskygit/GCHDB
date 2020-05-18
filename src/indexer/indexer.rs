@@ -1,5 +1,4 @@
 use super::*;
-use log::info;
 use std::time::Instant;
 use tantivy::{
     collector::TopDocs, query::QueryParser, schema::Schema, Index, IndexReader, IndexWriter,

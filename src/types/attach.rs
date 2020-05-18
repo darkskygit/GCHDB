@@ -18,9 +18,6 @@ impl<'a> Attachment {
                 RecordType::Record(record) | RecordType::RecordWithAttachs { record, .. } => {
                     record.get_id()
                 }
-                RecordType::RecordRef(record)
-                | RecordType::RecordRefWithAttachs { record, .. }
-                | RecordType::RecordRefWithAttachsRef { record, .. } => record.get_id(),
             },
             name,
             hash,

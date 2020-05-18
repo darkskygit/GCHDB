@@ -5,6 +5,7 @@ mod query;
 mod record;
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::convert::TryInto;
 
 pub use crate::schema::*;
@@ -25,19 +26,10 @@ pub trait ChatRecoder<'a> {
 
 pub enum RecordType<'a> {
     Id(i32),
-    Record(Record),
-    RecordRef(&'a Record),
+    Record(&'a Record),
     RecordWithAttachs {
-        record: Record,
-        attachs: Vec<Attachment>,
-    },
-    RecordRefWithAttachs {
         record: &'a Record,
-        attachs: Vec<Attachment>,
-    },
-    RecordRefWithAttachsRef {
-        record: &'a Record,
-        attachs: Vec<&'a Attachment>,
+        attachs: HashMap<String, Vec<u8>>,
     },
 }
 
@@ -47,39 +39,15 @@ impl<'a> From<i32> for RecordType<'a> {
     }
 }
 
-impl<'a> From<Record> for RecordType<'a> {
-    fn from(src: Record) -> Self {
+impl<'a> From<&'a Record> for RecordType<'a> {
+    fn from(src: &'a Record) -> Self {
         Self::Record(src)
     }
 }
 
-impl<'a> From<&'a Record> for RecordType<'a> {
-    fn from(src: &'a Record) -> Self {
-        Self::RecordRef(src)
-    }
-}
-
-impl<'a> From<(Record, Vec<Attachment>)> for RecordType<'a> {
-    fn from(src: (Record, Vec<Attachment>)) -> Self {
+impl<'a> From<(&'a Record, HashMap<String, Vec<u8>>)> for RecordType<'a> {
+    fn from(src: (&'a Record, HashMap<String, Vec<u8>>)) -> Self {
         Self::RecordWithAttachs {
-            record: src.0,
-            attachs: src.1,
-        }
-    }
-}
-
-impl<'a> From<(&'a Record, Vec<Attachment>)> for RecordType<'a> {
-    fn from(src: (&'a Record, Vec<Attachment>)) -> Self {
-        Self::RecordRefWithAttachs {
-            record: src.0,
-            attachs: src.1,
-        }
-    }
-}
-
-impl<'a> From<(&'a Record, Vec<&'a Attachment>)> for RecordType<'a> {
-    fn from(src: (&'a Record, Vec<&'a Attachment>)) -> Self {
-        Self::RecordRefWithAttachsRef {
             record: src.0,
             attachs: src.1,
         }

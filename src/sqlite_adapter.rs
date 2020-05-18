@@ -130,14 +130,6 @@ impl SqliteChatRecorder {
         })
     }
 
-    fn record_auto_insert(&mut self, record: &Record) -> ChatRecordResult<bool> {
-        Ok(if self.record_exists(&record)? {
-            self.record_update(&record)
-        } else {
-            self.record_insert(&record)
-        }? == 1)
-    }
-
     fn attach_exists(&self, attach: &Attachment) -> ChatRecordResult<bool> {
         use schema::attachments::dsl::*;
         Ok(select(exists(attachments.filter(
@@ -196,12 +188,22 @@ impl SqliteChatRecorder {
             .load(&self.conn.get()?)?)
     }
 
-    fn auto_insert(
+    fn blob_insert(&mut self, blob: &Blob) -> ChatRecordResult<usize> {
+        Ok(insert_into(blobs::table)
+            .values(blob)
+            .execute(&self.conn.get()?)?)
+    }
+
+    fn record_auto_insert(
         &mut self,
         record: &Record,
-        attachs: Vec<&Attachment>,
+        attachs: Vec<Attachment>,
     ) -> ChatRecordResult<bool> {
-        Ok(self.record_auto_insert(&record)?
+        Ok(if self.record_exists(&record)? {
+            self.record_update(&record)
+        } else {
+            self.record_insert(&record)
+        }? == 1
             && attachs
                 .iter()
                 .filter(|attach| self.attach_auto_insert(attach).unwrap_or(false))
@@ -217,16 +219,21 @@ impl<'a> ChatRecoder<'a> for SqliteChatRecorder {
     ) -> ChatRecordResult<bool> {
         Ok(match record.into() {
             RecordType::Id(_) => false,
-            RecordType::Record(record) => self.record_auto_insert(&record)?,
-            RecordType::RecordRef(record) => self.record_auto_insert(record)?,
+            RecordType::Record(record) => self.record_auto_insert(&record, vec![])?,
             RecordType::RecordWithAttachs { record, attachs } => {
-                self.auto_insert(&record, attachs.iter().map(|i| &*i).collect())?
-            }
-            RecordType::RecordRefWithAttachs { record, attachs } => {
-                self.auto_insert(record, attachs.iter().map(|i| &*i).collect())?
-            }
-            RecordType::RecordRefWithAttachsRef { record, attachs } => {
-                self.auto_insert(record, attachs)?
+                let attachs = attachs
+                    .iter()
+                    .filter_map(|(name, blob)| {
+                        let blob = Blob::new(blob.clone());
+                        self.blob_insert(&blob)
+                            .map(|ret| (ret, name, blob.hash))
+                            .map_err(|e| warn!("Failed to insert blob: {}", e))
+                            .ok()
+                    })
+                    .filter(|(ret, _, _)| *ret == 1)
+                    .map(|(_, name, hash)| Attachment::new(hash, name.clone(), record.get_id()))
+                    .collect();
+                self.record_auto_insert(&record, attachs)?
             }
         })
     }
@@ -236,11 +243,6 @@ impl<'a> ChatRecoder<'a> for SqliteChatRecorder {
             RecordType::Id(id) => self.record_remove_by_id(id)? == 1,
             RecordType::Record(record) | RecordType::RecordWithAttachs { record, .. } => {
                 self.record_remove(&record)? == 1 && self.attachs_remove(record.get_id())?
-            }
-            RecordType::RecordRef(record)
-            | RecordType::RecordRefWithAttachs { record, .. }
-            | RecordType::RecordRefWithAttachsRef { record, .. } => {
-                self.record_remove(record)? == 1 && self.attachs_remove(record.get_id())?
             }
         })
     }
@@ -281,6 +283,6 @@ fn test_chat_record() -> ChatRecordResult<()> {
             ..Default::default()
         })?
     );
-    assert_eq!(recoder.remove_record(record)?, true);
+    assert_eq!(recoder.remove_record(&record)?, true);
     Ok(())
 }
