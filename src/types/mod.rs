@@ -24,13 +24,27 @@ pub trait ChatRecoder<'a> {
     fn get_record(&self, query: Query) -> ChatRecordResult<Vec<Record>>;
 }
 
+#[derive(Clone)]
 pub enum RecordType<'a> {
     Id(i32),
-    Record(&'a Record),
+    Record(Record),
+    RecordRef(&'a Record),
     RecordWithAttachs {
         record: &'a Record,
         attachs: HashMap<String, Vec<u8>>,
     },
+}
+
+impl<'a> RecordType<'a> {
+    pub fn get_record(&'a self) -> Option<&'a Record> {
+        match self {
+            RecordType::Record(record) => Some(&record),
+            RecordType::RecordRef(record) | RecordType::RecordWithAttachs { record, .. } => {
+                Some(record)
+            }
+            _ => None,
+        }
+    }
 }
 
 impl<'a> From<i32> for RecordType<'a> {
@@ -39,9 +53,15 @@ impl<'a> From<i32> for RecordType<'a> {
     }
 }
 
+impl From<Record> for RecordType<'_> {
+    fn from(src: Record) -> Self {
+        Self::Record(src)
+    }
+}
+
 impl<'a> From<&'a Record> for RecordType<'a> {
     fn from(src: &'a Record) -> Self {
-        Self::Record(src)
+        Self::RecordRef(src)
     }
 }
 
