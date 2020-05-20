@@ -78,7 +78,8 @@ impl SqliteChatRecorder {
                         .like(query.get_chat_type())
                         .and(owner_id.like(query.get_owner_id()))
                         .and(group_id.like(query.get_group_id()))
-                        .and(sender.like(query.get_sender())),
+                        .and(sender_id.like(query.get_sender_id()))
+                        .and(sender_name.like(query.get_sender_name())),
                 )
                 .offset(query.get_offset())
                 .limit(query.get_limit())
@@ -151,7 +152,8 @@ fn test_chat_record() -> ChatRecordResult<()> {
         chat_type: "testaasdavxz".into(),
         owner_id: "asdasdasdaaaa".into(),
         group_id: "asdasdasd".into(),
-        sender: "人民日报".into(),
+        sender_id: "people_daily".into(),
+        sender_name: "人民日报".into(),
         content:
             "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途"
                 .into(),
@@ -163,7 +165,8 @@ fn test_chat_record() -> ChatRecordResult<()> {
         chat_type: "testaasdavxz".into(),
         owner_id: "asdasdasdaaaa".into(),
         group_id: "asdasdasd".into(),
-        sender: "新闻".into(),
+        sender_id: "news".into(),
+        sender_name: "新闻".into(),
         content: "Intel线路图显示他们想恢复两年升级一次工艺，2029年有1.4nm".into(),
         timestamp: chrono::Local::now().naive_utc().timestamp_millis(),
         ..Default::default()
@@ -183,7 +186,7 @@ fn test_chat_record() -> ChatRecordResult<()> {
         "{:?}",
         recoder.get_record(Query {
             chat_type: Some("testaasdavxz".into()),
-            sender: Some("%日报".into()),
+            sender_name: Some("%日报".into()),
             ..Default::default()
         })?
     );

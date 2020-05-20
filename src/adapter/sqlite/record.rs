@@ -8,7 +8,7 @@ fn check_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<bo
                 .eq(&record.chat_type)
                 .and(owner_id.eq(&record.owner_id))
                 .and(group_id.eq(&record.group_id))
-                .and(sender.eq(&record.sender))
+                .and(sender_id.eq(&record.sender_id))
                 .and(timestamp.eq(record.timestamp)),
         ),
     ))
@@ -24,11 +24,15 @@ fn update_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<u
                 .eq(&record.chat_type)
                 .and(owner_id.eq(&record.owner_id))
                 .and(group_id.eq(&record.group_id))
-                .and(sender.eq(&record.sender))
+                .and(sender_id.eq(&record.sender_id))
                 .and(timestamp.eq(record.timestamp))),
         ),
     )
-    .set((content.eq(&record.content), metadata.eq(&record.metadata)))
+    .set((
+        sender_name.eq(&record.sender_name),
+        content.eq(&record.content),
+        metadata.eq(&record.metadata),
+    ))
     .execute(conn)?)
 }
 
