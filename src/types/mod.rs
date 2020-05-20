@@ -30,6 +30,10 @@ pub enum RecordType<'a> {
     Record(Record),
     RecordRef(&'a Record),
     RecordWithAttachs {
+        record: Record,
+        attachs: HashMap<String, Vec<u8>>,
+    },
+    RecordRefWithAttachs {
         record: &'a Record,
         attachs: HashMap<String, Vec<u8>>,
     },
@@ -38,8 +42,10 @@ pub enum RecordType<'a> {
 impl<'a> RecordType<'a> {
     pub fn get_record(&'a self) -> Option<&'a Record> {
         match self {
-            RecordType::Record(record) => Some(&record),
-            RecordType::RecordRef(record) | RecordType::RecordWithAttachs { record, .. } => {
+            RecordType::Record(record) | RecordType::RecordWithAttachs { record, .. } => {
+                Some(&record)
+            }
+            RecordType::RecordRef(record) | RecordType::RecordRefWithAttachs { record, .. } => {
                 Some(record)
             }
             _ => None,
@@ -65,9 +71,18 @@ impl<'a> From<&'a Record> for RecordType<'a> {
     }
 }
 
+impl From<(Record, HashMap<String, Vec<u8>>)> for RecordType<'_> {
+    fn from(src: (Record, HashMap<String, Vec<u8>>)) -> Self {
+        Self::RecordWithAttachs {
+            record: src.0,
+            attachs: src.1,
+        }
+    }
+}
+
 impl<'a> From<(&'a Record, HashMap<String, Vec<u8>>)> for RecordType<'a> {
     fn from(src: (&'a Record, HashMap<String, Vec<u8>>)) -> Self {
-        Self::RecordWithAttachs {
+        Self::RecordRefWithAttachs {
             record: src.0,
             attachs: src.1,
         }

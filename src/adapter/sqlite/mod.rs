@@ -120,6 +120,9 @@ impl<'a> ChatRecoder<'a> for SqliteChatRecorder {
             RecordType::RecordWithAttachs { record, attachs } => {
                 self.record_auto_insert(&record, attachs)?
             }
+            RecordType::RecordRefWithAttachs { record, attachs } => {
+                self.record_auto_insert(record, attachs)?
+            }
         })
     }
 
@@ -127,10 +130,10 @@ impl<'a> ChatRecoder<'a> for SqliteChatRecorder {
         let conn = self.conn.get()?;
         Ok(match record.into() {
             RecordType::Id(id) => remove_record_by_id(&conn, id)? == 1,
-            RecordType::Record(record) => {
+            RecordType::Record(record) | RecordType::RecordWithAttachs { record, .. } => {
                 remove_record(&conn, &record)? == 1 && remove_attachs(&conn, record.get_id())?
             }
-            RecordType::RecordRef(record) | RecordType::RecordWithAttachs { record, .. } => {
+            RecordType::RecordRef(record) | RecordType::RecordRefWithAttachs { record, .. } => {
                 remove_record(&conn, &record)? == 1 && remove_attachs(&conn, record.get_id())?
             }
         })
