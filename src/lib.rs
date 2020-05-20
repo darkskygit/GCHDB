@@ -16,4 +16,4 @@ use utils::*;
 
 pub use adapter::SqliteChatRecorder;
 pub use indexer::ContentIndexer;
-pub use types::{ChatRecoder, ChatRecordError, Query, Record};
+pub use types::{Attachment, ChatRecoder, ChatRecordError, Query, Record};
