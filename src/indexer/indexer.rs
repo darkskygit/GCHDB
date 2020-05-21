@@ -57,11 +57,11 @@ impl ContentIndexer {
                 .add_document(metadata.get_document(&self.fields)?);
             if total > 200.0 && i as f64 / total - last_parent >= 0.01 {
                 last_parent = i as f64 / total;
-                info!(
-                    "curr parent: {} / {}, {}%, {}ms",
+                debug!(
+                    "current progress: {} / {}, {}%, {}ms",
                     i,
                     total,
-                    last_parent,
+                    last_parent * 100.0,
                     sw.elapsed().as_millis()
                 );
                 sw = Instant::now();

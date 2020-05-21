@@ -3,6 +3,11 @@ name = "gchdb"
 version = "0.1.0"
 authors = ["DarkSky <darksky2048@gmail.com>"]
 edition = "2018"
+license-file = "LICENSE"
+keywords = ["chat", "database", "backup", "full-text"]
+description = "Provides a record abstraction for storing chat records extracted by different chat software, and provides full-text search feature"
+repository = "https://github.com/darkskygit/GCHDB"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
