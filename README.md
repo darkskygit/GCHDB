@@ -1,12 +1,14 @@
-# GCHDB aka General chat history database (WIP)
+# GCHDB aka General chat history database
 
-This crate provides a record abstraction for storing chat records extracted by different chat software, and provides full-text search feature.
+This crate provides chat record abstraction, used to store chat records extracted from different chat software, and integrated Chinese full-text index.
 
 # Usage
 
 ```rust
 fn main() -> ChatRecordResult<()> {
+    // create an records database
     let mut recoder = SqliteChatRecorder::new("record.db")?;
+    // create record, you can extract some record from other im's database
     let record = Record {
         chat_type: "testaasdavxz".into(),
         owner_id: "asdasdasdaaaa".into(),
@@ -18,8 +20,11 @@ fn main() -> ChatRecordResult<()> {
         timestamp: chrono::Local::now().naive_utc().timestamp_millis(),
         ..Default::default()
     };
+    // insert to database
     assert_eq!(recoder.insert_or_update_record(&record)?, true);
+    // index the contents of the record
     recoder.refresh_index()?;
+    // query record by sql
     println!(
         "{:?}",
         recoder.get_record(Query {
@@ -28,6 +33,7 @@ fn main() -> ChatRecordResult<()> {
             ..Default::default()
         })?
     );
+    // query record by indexer
     println!(
         "{:?}",
         recoder.get_record(Query {
@@ -35,6 +41,7 @@ fn main() -> ChatRecordResult<()> {
             ..Default::default()
         })?
     );
+    // remove record in database
     assert_eq!(recoder.remove_record(record)?, true);
     Ok(())
 }
@@ -42,4 +49,8 @@ fn main() -> ChatRecordResult<()> {
 
 # Contributing
 
-Pull request :)
+Welcome pull request :)
+
+# License
+
+AGPL3.0
