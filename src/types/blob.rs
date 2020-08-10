@@ -1,9 +1,10 @@
 use super::*;
 use lazy_static::lazy_static;
 use sha3::{
-    digest::{ExtendableOutput, Input, Reset},
+    digest::{ExtendableOutputDirty, Reset, Update},
     Shake256,
 };
+use std::io::Read;
 use std::sync::{Arc, Mutex};
 
 #[derive(Queryable, Insertable, Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
@@ -28,12 +29,15 @@ impl Blob {
         i64::from_ne_bytes(
             {
                 let mut hasher = HASHER.lock().unwrap();
-                hasher.input(data);
-                let ret = hasher.clone();
+                hasher.update(data);
+                let mut ret = hasher.clone();
                 hasher.reset();
-                ret
+                let mut buf = vec![0u8; 8];
+                if ret.finalize_xof_dirty().read(&mut buf).is_err() {
+                    buf = vec![0u8, 8];
+                }
+                buf
             }
-            .vec_result(8)
             .as_slice()
             .try_into()
             .expect("slice with incorrect length"),

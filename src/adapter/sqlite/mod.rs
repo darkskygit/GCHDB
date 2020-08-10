@@ -32,7 +32,7 @@ impl SqliteChatRecorder {
         let pool = Pool::builder()
             .build(manager)
             .context("Failed to create pool")?;
-        let executor = pool.clone().get().unwrap();
+        let executor = pool.get().unwrap();
         executor
             .execute("PRAGMA journal_mode = WAL;")
             .context("Failed to init WAL mode")?;
@@ -60,7 +60,7 @@ impl SqliteChatRecorder {
         use schema::records::dsl::*;
         let default_query = records.filter(
             timestamp
-                .le(query.before.unwrap_or(get_now()))
+                .le(query.before.unwrap_or_else(get_now))
                 .and(timestamp.ge(query.after.unwrap_or(0))),
         );
         Ok(if let Some(keyword) = &query.keyword {

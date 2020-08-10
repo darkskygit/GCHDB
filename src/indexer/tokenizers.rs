@@ -3,7 +3,7 @@ use lindera_tantivy::tokenizer::LinderaTokenizer;
 use tantivy::tokenizer::TokenizerManager;
 
 pub use cang_jie::CANG_JIE as LANG_CN;
-pub const LANG_JP: &'static str = "lindera";
+pub const LANG_JP: &str = "lindera";
 
 pub fn tokenizers_register(tokenizers: &TokenizerManager) {
     tokenizers.register(

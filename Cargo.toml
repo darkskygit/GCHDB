@@ -1,6 +1,6 @@
 [package]
 name = "gchdb"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["DarkSky <darksky2048@gmail.com>"]
 edition = "2018"
 license-file = "LICENSE"
@@ -11,30 +11,30 @@ readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-anyhow = "1.0.31"
-cang-jie = "0.8.0"
-chrono = "0.4.11"
+anyhow = "1.0.32"
+cang-jie = "0.9.0"
+chrono = "0.4.13"
 futures = "0.3.5"
 lazy_static = "1.4.0"
-lindera-tantivy = "0.1.1"
-log = "0.4.8"
+lindera-tantivy = "=0.1.1"
+log = "0.4.11"
 num_cpus = "1.13.0"
-sha3 = "0.8.2"
-thiserror = "1.0.18"
+sha3 = "0.9.1"
+thiserror = "1.0.20"
 
 [dependencies.diesel]
-version = "1.4.4"
+version = "1.4.5"
 features = ["chrono", "r2d2", "sqlite"]
 
 [dependencies.diesel_migrations]
 version = "1.4.0"
 
 [dependencies.libsqlite3-sys]
-version = "0.17.3"
+version = "0.18.0"
 features = ["bundled"]
 
 [dependencies.serde]
-version = "1.0.110"
+version = "1.0.114"
 features = ["derive"]
 
 [dependencies.tantivy]
