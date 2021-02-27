@@ -16,10 +16,13 @@ pub use query::Query;
 pub use record::Record;
 
 pub trait ChatRecoder<'a> {
-    fn insert_or_update_record<R: Into<RecordType<'a>>>(
+    fn insert_or_update_record<R>(
         &mut self,
         record: R,
-    ) -> ChatRecordResult<bool>;
+        merger: Option<Box<dyn Fn(Vec<u8>, Vec<u8>) -> Option<Vec<u8>>>>,
+    ) -> ChatRecordResult<bool>
+    where
+        R: Into<RecordType<'a>>;
     fn remove_record<R: Into<RecordType<'a>>>(&mut self, record: R) -> ChatRecordResult<bool>;
     fn get_record(&self, query: Query) -> ChatRecordResult<Vec<Record>>;
 }

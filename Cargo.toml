@@ -1,6 +1,6 @@
 [package]
 name = "gchdb"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["DarkSky <darksky2048@gmail.com>"]
 edition = "2018"
 license-file = "LICENSE"
@@ -12,11 +12,10 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 anyhow = "1.0.32"
-cang-jie = "0.9.0"
+cang-jie = "0.11.1"
 chrono = "0.4.13"
 futures = "0.3.5"
 lazy_static = "1.4.0"
-lindera-tantivy = "=0.1.1"
 log = "0.4.11"
 num_cpus = "1.13.0"
 sha3 = "0.9.1"
@@ -38,6 +37,6 @@ version = "1.0.114"
 features = ["derive"]
 
 [dependencies.tantivy]
-version = "0.12.0"
+version = "0.14.0"
 default-features = false
 features = ["lz4-compression"]

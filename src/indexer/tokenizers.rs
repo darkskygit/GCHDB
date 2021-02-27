@@ -1,9 +1,9 @@
 use cang_jie::{CangJieTokenizer, TokenizerOption};
-use lindera_tantivy::tokenizer::LinderaTokenizer;
+// use lindera_tantivy::tokenizer::LinderaTokenizer;
 use tantivy::tokenizer::TokenizerManager;
 
 pub use cang_jie::CANG_JIE as LANG_CN;
-pub const LANG_JP: &str = "lindera";
+// pub const LANG_JP: &str = "lindera";
 
 pub fn tokenizers_register(tokenizers: &TokenizerManager) {
     tokenizers.register(
@@ -13,5 +13,5 @@ pub fn tokenizers_register(tokenizers: &TokenizerManager) {
             ..Default::default()
         },
     );
-    tokenizers.register(LANG_JP, LinderaTokenizer::new("decompose", ""));
+    // tokenizers.register(LANG_JP, LinderaTokenizer::new("decompose", ""));
 }

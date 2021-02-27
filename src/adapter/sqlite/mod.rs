@@ -87,42 +87,61 @@ impl SqliteChatRecorder {
         })
     }
 
-    fn record_auto_insert(
+    fn record_auto_insert<F>(
         &mut self,
         record: &Record,
         attachs: HashMap<String, Vec<u8>>,
-    ) -> ChatRecordResult<bool> {
+        metadata_merger: F,
+    ) -> ChatRecordResult<bool>
+    where
+        F: Fn(Vec<u8>, Vec<u8>) -> Option<Vec<u8>>,
+    {
         let conn = self.conn.get()?;
-        Ok(insert_or_update_record(&conn, record)? && {
-            let mut len = 0;
-            let record_id = get_record_id(&conn, &record)?;
-            if record_id > 0 {
-                for (name, blob) in attachs.iter() {
-                    insert_or_update_attach(&conn, blob.clone(), name.clone(), record_id)?;
-                    len += 1;
+        Ok(
+            insert_or_update_record(&conn, record, metadata_merger)? && {
+                let mut len = 0;
+                let record_id = get_record_id(&conn, &record)?;
+                if record_id > 0 {
+                    for (name, blob) in attachs.iter() {
+                        insert_or_update_attach(&conn, blob.clone(), name.clone(), record_id)?;
+                        len += 1;
+                    }
+                    len
+                } else {
+                    0
                 }
-                len
-            } else {
-                0
-            }
-        } == attachs.len())
+            } == attachs.len(),
+        )
     }
 }
 
+fn default_metadata_merger(_old: Vec<u8>, new: Vec<u8>) -> Option<Vec<u8>> {
+    Some(new)
+}
+
 impl<'a> ChatRecoder<'a> for SqliteChatRecorder {
-    fn insert_or_update_record<R: Into<RecordType<'a>>>(
+    fn insert_or_update_record<R>(
         &mut self,
         record: R,
-    ) -> ChatRecordResult<bool> {
+        merger: Option<Box<dyn Fn(Vec<u8>, Vec<u8>) -> Option<Vec<u8>>>>,
+    ) -> ChatRecordResult<bool>
+    where
+        R: Into<RecordType<'a>>,
+    {
+        let merger = merger.unwrap_or(Box::new(default_metadata_merger));
         Ok(match record.into() {
             RecordType::Id(_) => false,
-            RecordType::Record(record) => self.record_auto_insert(&record, Default::default())?,
-            RecordType::RecordRef(record) => self.record_auto_insert(record, Default::default())?,
+            RecordType::Record(record) => {
+                self.record_auto_insert(&record, Default::default(), merger)?
+            }
+            RecordType::RecordRef(record) => {
+                self.record_auto_insert(record, Default::default(), merger)?
+            }
             RecordType::RecordWithAttachs { record, attachs } => {
-                self.record_auto_insert(&record, attachs)?
+                self.record_auto_insert(&record, attachs, merger)?
             }
             RecordType::RecordRefWithAttachs { record, attachs } => {
-                self.record_auto_insert(record, attachs)?
+                self.record_auto_insert(record, attachs, merger)?
             }
         })
     }
@@ -160,7 +179,7 @@ fn test_chat_record() -> ChatRecordResult<()> {
         timestamp: chrono::Local::now().naive_utc().timestamp_millis(),
         ..Default::default()
     };
-    assert_eq!(recoder.insert_or_update_record(&record)?, true);
+    assert_eq!(recoder.insert_or_update_record(&record, None)?, true);
     let record1 = Record {
         chat_type: "testaasdavxz".into(),
         owner_id: "asdasdasdaaaa".into(),
@@ -172,13 +191,16 @@ fn test_chat_record() -> ChatRecordResult<()> {
         ..Default::default()
     };
     assert_eq!(
-        recoder.insert_or_update_record((
-            &record1,
-            [("test".into(), vec![0, 1, 2, 3])]
-                .iter()
-                .cloned()
-                .collect()
-        ))?,
+        recoder.insert_or_update_record(
+            (
+                &record1,
+                [("test".into(), vec![0, 1, 2, 3])]
+                    .iter()
+                    .cloned()
+                    .collect()
+            ),
+            None
+        )?,
         true
     );
     recoder.refresh_index()?;

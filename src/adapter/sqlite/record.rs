@@ -1,19 +1,18 @@
 use super::*;
 
-fn check_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<bool> {
+fn check_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<Option<Vec<u8>>> {
     use schema::records::dsl::*;
-    Ok(select(exists(
-        records.filter(
+    Ok(records
+        .filter(
             chat_type
                 .eq(&record.chat_type)
                 .and(owner_id.eq(&record.owner_id))
                 .and(group_id.eq(&record.group_id))
                 .and(sender_id.eq(&record.sender_id))
                 .and(timestamp.eq(record.timestamp)),
-        ),
-    ))
-    .get_result(conn)
-    .unwrap_or(false))
+        )
+        .select(metadata)
+        .get_result(conn)?)
 }
 
 fn update_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<usize> {
@@ -40,8 +39,18 @@ fn insert_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<u
     Ok(insert_into(records::table).values(record).execute(conn)?)
 }
 
-pub fn insert_or_update_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<bool> {
-    Ok(if check_record(&conn, &record)? {
+pub fn insert_or_update_record<F: Fn(Vec<u8>, Vec<u8>) -> Option<Vec<u8>>>(
+    conn: &SqliteConnection,
+    record: &Record,
+    metadata_merger: F,
+) -> ChatRecordResult<bool> {
+    Ok(if let Some(old_metadata) = check_record(&conn, &record)? {
+        let mut record = record.clone();
+        if let Some(metadata) = record.metadata {
+            record.metadata = metadata_merger(old_metadata, metadata);
+        } else {
+            record.metadata = Some(old_metadata)
+        }
         update_record(conn, &record)
     } else {
         insert_record(conn, &record)
