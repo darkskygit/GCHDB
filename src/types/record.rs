@@ -18,4 +18,10 @@ impl Record {
     pub fn get_id(&self) -> i32 {
         self.id.unwrap_or_default()
     }
+    pub fn display(&self) -> String {
+        format!(
+            "{} ({}): {}",
+            self.sender_name, self.sender_id, self.content
+        )
+    }
 }

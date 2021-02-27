@@ -54,6 +54,11 @@ impl<'a> RecordType<'a> {
             _ => None,
         }
     }
+    pub fn display(&self) -> String {
+        self.get_record()
+            .map(Record::display)
+            .unwrap_or("[no content]".into())
+    }
 }
 
 impl<'a> From<i32> for RecordType<'a> {
