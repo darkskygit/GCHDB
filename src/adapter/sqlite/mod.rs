@@ -13,6 +13,7 @@ use diesel::{
     dsl::{delete, exists, insert_into, select, update},
     prelude::*,
     r2d2::{ConnectionManager, Pool},
+    result::Error as DieselError,
     sqlite::SqliteConnection,
 };
 use std::path::Path;

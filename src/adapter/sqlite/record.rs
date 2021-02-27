@@ -12,7 +12,8 @@ fn check_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<Op
                 .and(timestamp.eq(record.timestamp)),
         )
         .select(metadata)
-        .get_result(conn)?)
+        .get_result(conn)
+        .or_else(|e| (e == DieselError::NotFound).then(|| None).ok_or(e))?)
 }
 
 fn update_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<usize> {
