@@ -1,8 +1,13 @@
 use super::*;
 
-fn check_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<Option<Vec<u8>>> {
+enum RecordExistence {
+    Exist(Option<Vec<u8>>),
+    NotExist,
+}
+
+fn check_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<RecordExistence> {
     use schema::records::dsl::*;
-    Ok(records
+    match records
         .filter(
             chat_type
                 .eq(&record.chat_type)
@@ -13,7 +18,11 @@ fn check_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<Op
         )
         .select(metadata)
         .get_result(conn)
-        .or_else(|e| (e == DieselError::NotFound).then(|| None).ok_or(e))?)
+    {
+        Ok(data) => Ok(RecordExistence::Exist(data)),
+        Err(DieselError::NotFound) => Ok(RecordExistence::NotExist),
+        Err(e) => Err(e.into()),
+    }
 }
 
 fn update_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<usize> {
@@ -45,17 +54,23 @@ pub fn insert_or_update_record<F: Fn(Vec<u8>, Vec<u8>) -> Option<Vec<u8>>>(
     record: &Record,
     metadata_merger: F,
 ) -> ChatRecordResult<bool> {
-    Ok(if let Some(old_metadata) = check_record(&conn, &record)? {
-        let mut record = record.clone();
-        if let Some(metadata) = record.metadata {
-            record.metadata = metadata_merger(old_metadata, metadata);
+    Ok(
+        if let RecordExistence::Exist(old_metadata) = check_record(&conn, &record)? {
+            let mut record = record.clone();
+            if let Some(metadata) = record.metadata {
+                record.metadata = if let Some(old_metadata) = old_metadata {
+                    metadata_merger(old_metadata, metadata)
+                } else {
+                    Some(metadata)
+                }
+            } else {
+                record.metadata = old_metadata
+            }
+            update_record(conn, &record)
         } else {
-            record.metadata = Some(old_metadata)
-        }
-        update_record(conn, &record)
-    } else {
-        insert_record(conn, &record)
-    }? == 1)
+            insert_record(conn, &record)
+        }? == 1,
+    )
 }
 
 pub fn remove_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<usize> {
