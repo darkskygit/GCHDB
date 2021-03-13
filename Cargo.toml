@@ -1,6 +1,6 @@
 [package]
 name = "gchdb"
-version = "0.2.4"
+version = "0.2.5"
 authors = ["DarkSky <darksky2048@gmail.com>"]
 edition = "2018"
 license-file = "LICENSE"

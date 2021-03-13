@@ -95,7 +95,7 @@ impl SqliteChatRecorder {
         metadata_merger: F,
     ) -> ChatRecordResult<bool>
     where
-        F: Fn(&Self, Vec<u8>, Vec<u8>) -> Option<Vec<u8>>,
+        F: Fn(&Self, Vec<u8>, &Record) -> Option<Vec<u8>>,
     {
         let conn = self.conn.get()?;
         Ok(
@@ -124,16 +124,16 @@ impl SqliteChatRecorder {
 fn default_metadata_merger(
     _recorder: &SqliteChatRecorder,
     _old: Vec<u8>,
-    new: Vec<u8>,
+    new: &Record,
 ) -> Option<Vec<u8>> {
-    Some(new)
+    new.metadata.clone()
 }
 
 impl<'a> ChatRecoder<'a> for SqliteChatRecorder {
     fn insert_or_update_record<R>(
         &mut self,
         record: R,
-        merger: Option<Box<dyn Fn(&Self, Vec<u8>, Vec<u8>) -> Option<Vec<u8>>>>,
+        merger: Option<Box<dyn Fn(&Self, Vec<u8>, &Record) -> Option<Vec<u8>>>>,
     ) -> ChatRecordResult<bool>
     where
         R: Into<RecordType<'a>>,
