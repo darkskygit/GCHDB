@@ -4,7 +4,7 @@ mod record;
 
 use super::*;
 use attach::{insert_or_update_attach, remove_attachs};
-use blob::{insert_blob, remove_blob};
+use blob::{get_blob, insert_blob, remove_blob};
 use record::{get_record_id, insert_or_update_record, remove_record, remove_record_by_id};
 use std::collections::HashMap;
 
@@ -95,11 +95,11 @@ impl SqliteChatRecorder {
         metadata_merger: F,
     ) -> ChatRecordResult<bool>
     where
-        F: Fn(Vec<u8>, Vec<u8>) -> Option<Vec<u8>>,
+        F: Fn(&Self, Vec<u8>, Vec<u8>) -> Option<Vec<u8>>,
     {
         let conn = self.conn.get()?;
         Ok(
-            insert_or_update_record(&conn, record, metadata_merger)? && {
+            insert_or_update_record(&conn, self, record, metadata_merger)? && {
                 let mut len = 0;
                 let record_id = get_record_id(&conn, &record)?;
                 if record_id > 0 {
@@ -114,9 +114,18 @@ impl SqliteChatRecorder {
             } == attachs.len(),
         )
     }
+
+    pub fn get_blob(&self, hash: i64) -> ChatRecordResult<Vec<u8>> {
+        let conn = self.conn.get()?;
+        get_blob(&conn, hash)
+    }
 }
 
-fn default_metadata_merger(_old: Vec<u8>, new: Vec<u8>) -> Option<Vec<u8>> {
+fn default_metadata_merger(
+    _recorder: &SqliteChatRecorder,
+    _old: Vec<u8>,
+    new: Vec<u8>,
+) -> Option<Vec<u8>> {
     Some(new)
 }
 
@@ -124,7 +133,7 @@ impl<'a> ChatRecoder<'a> for SqliteChatRecorder {
     fn insert_or_update_record<R>(
         &mut self,
         record: R,
-        merger: Option<Box<dyn Fn(Vec<u8>, Vec<u8>) -> Option<Vec<u8>>>>,
+        merger: Option<Box<dyn Fn(&Self, Vec<u8>, Vec<u8>) -> Option<Vec<u8>>>>,
     ) -> ChatRecordResult<bool>
     where
         R: Into<RecordType<'a>>,

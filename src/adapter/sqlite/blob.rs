@@ -19,6 +19,14 @@ pub fn insert_blob(conn: &SqliteConnection, blob: &Blob) -> ChatRecordResult<boo
     })
 }
 
+pub fn get_blob(conn: &SqliteConnection, blob_hash: i64) -> ChatRecordResult<Vec<u8>> {
+    use schema::blobs::dsl::*;
+    Ok(blobs
+        .filter(hash.eq(blob_hash))
+        .select(blob)
+        .get_result::<Vec<u8>>(conn)?)
+}
+
 pub fn remove_blob(conn: &SqliteConnection, hash: i64) -> ChatRecordResult<usize> {
     use schema::blobs::{dsl, table};
     Ok(delete(table).filter(dsl::hash.eq(hash)).execute(conn)?)
