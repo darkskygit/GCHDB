@@ -15,11 +15,15 @@ pub use error::ChatRecordError;
 pub use query::Query;
 pub use record::Record;
 
+pub type Attachments = HashMap<String, Vec<u8>>;
+
+pub type MetadataMerger<C> = fn(&C, &Attachments, Vec<u8>, Vec<u8>) -> Option<Vec<u8>>;
+
 pub trait ChatRecoder<'a> {
     fn insert_or_update_record<R>(
         &mut self,
         record: R,
-        merger: Option<Box<dyn Fn(&Self, Vec<u8>, &Record) -> Option<Vec<u8>>>>,
+        merger: Option<MetadataMerger<Self>>,
     ) -> ChatRecordResult<bool>
     where
         R: Into<RecordType<'a>>;
@@ -34,11 +38,11 @@ pub enum RecordType<'a> {
     RecordRef(&'a Record),
     RecordWithAttachs {
         record: Record,
-        attachs: HashMap<String, Vec<u8>>,
+        attachs: Attachments,
     },
     RecordRefWithAttachs {
         record: &'a Record,
-        attachs: HashMap<String, Vec<u8>>,
+        attachs: Attachments,
     },
 }
 
@@ -79,8 +83,8 @@ impl<'a> From<&'a Record> for RecordType<'a> {
     }
 }
 
-impl From<(Record, HashMap<String, Vec<u8>>)> for RecordType<'_> {
-    fn from(src: (Record, HashMap<String, Vec<u8>>)) -> Self {
+impl From<(Record, Attachments)> for RecordType<'_> {
+    fn from(src: (Record, Attachments)) -> Self {
         Self::RecordWithAttachs {
             record: src.0,
             attachs: src.1,
@@ -88,8 +92,8 @@ impl From<(Record, HashMap<String, Vec<u8>>)> for RecordType<'_> {
     }
 }
 
-impl<'a> From<(&'a Record, HashMap<String, Vec<u8>>)> for RecordType<'a> {
-    fn from(src: (&'a Record, HashMap<String, Vec<u8>>)) -> Self {
+impl<'a> From<(&'a Record, Attachments)> for RecordType<'a> {
+    fn from(src: (&'a Record, Attachments)) -> Self {
         Self::RecordRefWithAttachs {
             record: src.0,
             attachs: src.1,

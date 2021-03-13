@@ -88,18 +88,15 @@ impl SqliteChatRecorder {
         })
     }
 
-    fn record_auto_insert<F>(
+    fn record_auto_insert(
         &mut self,
         record: &Record,
         attachs: HashMap<String, Vec<u8>>,
-        metadata_merger: F,
-    ) -> ChatRecordResult<bool>
-    where
-        F: Fn(&Self, Vec<u8>, &Record) -> Option<Vec<u8>>,
-    {
+        merger: MetadataMerger<Self>,
+    ) -> ChatRecordResult<bool> {
         let conn = self.conn.get()?;
         Ok(
-            insert_or_update_record(&conn, self, record, metadata_merger)? && {
+            insert_or_update_record(&conn, self, record, &attachs, merger)? && {
                 let mut len = 0;
                 let record_id = get_record_id(&conn, &record)?;
                 if record_id > 0 {
@@ -123,22 +120,23 @@ impl SqliteChatRecorder {
 
 fn default_metadata_merger(
     _recorder: &SqliteChatRecorder,
+    _attachs: &Attachments,
     _old: Vec<u8>,
-    new: &Record,
+    new: Vec<u8>,
 ) -> Option<Vec<u8>> {
-    new.metadata.clone()
+    Some(new)
 }
 
 impl<'a> ChatRecoder<'a> for SqliteChatRecorder {
     fn insert_or_update_record<R>(
         &mut self,
         record: R,
-        merger: Option<Box<dyn Fn(&Self, Vec<u8>, &Record) -> Option<Vec<u8>>>>,
+        merger: Option<MetadataMerger<Self>>,
     ) -> ChatRecordResult<bool>
     where
         R: Into<RecordType<'a>>,
     {
-        let merger = merger.unwrap_or(Box::new(default_metadata_merger));
+        let merger = merger.unwrap_or(default_metadata_merger);
         Ok(match record.into() {
             RecordType::Id(_) => false,
             RecordType::Record(record) => {

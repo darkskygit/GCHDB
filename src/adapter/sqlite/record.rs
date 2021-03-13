@@ -49,18 +49,19 @@ fn insert_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<u
     Ok(insert_into(records::table).values(record).execute(conn)?)
 }
 
-pub fn insert_or_update_record<F: Fn(&SqliteChatRecorder, Vec<u8>, &Record) -> Option<Vec<u8>>>(
+pub fn insert_or_update_record(
     conn: &SqliteConnection,
     recorder: &SqliteChatRecorder,
     record: &Record,
-    metadata_merger: F,
+    attachs: &HashMap<String, Vec<u8>>,
+    metadata_merger: MetadataMerger<SqliteChatRecorder>,
 ) -> ChatRecordResult<bool> {
     Ok(
         if let RecordExistence::Exist(old_metadata) = check_record(&conn, &record)? {
             let mut record = record.clone();
-            if let Some(ref metadata) = record.metadata {
+            if let Some(metadata) = record.metadata {
                 record.metadata = if let Some(old_metadata) = old_metadata {
-                    metadata_merger(recorder, old_metadata, &record)
+                    metadata_merger(recorder, attachs, old_metadata, metadata)
                 } else {
                     Some(metadata.clone())
                 }
