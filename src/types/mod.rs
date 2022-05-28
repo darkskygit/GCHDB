@@ -36,23 +36,23 @@ pub enum RecordType<'a> {
     Id(i32),
     Record(Record),
     RecordRef(&'a Record),
-    RecordWithAttachs {
+    RecordWithAttaches {
         record: Record,
-        attachs: Attachments,
+        attaches: Attachments,
     },
-    RecordRefWithAttachs {
+    RecordRefWithAttaches {
         record: &'a Record,
-        attachs: Attachments,
+        attaches: Attachments,
     },
 }
 
 impl<'a> RecordType<'a> {
     pub fn get_record(&'a self) -> Option<&'a Record> {
         match self {
-            RecordType::Record(record) | RecordType::RecordWithAttachs { record, .. } => {
+            RecordType::Record(record) | RecordType::RecordWithAttaches { record, .. } => {
                 Some(&record)
             }
-            RecordType::RecordRef(record) | RecordType::RecordRefWithAttachs { record, .. } => {
+            RecordType::RecordRef(record) | RecordType::RecordRefWithAttaches { record, .. } => {
                 Some(record)
             }
             _ => None,
@@ -85,18 +85,18 @@ impl<'a> From<&'a Record> for RecordType<'a> {
 
 impl From<(Record, Attachments)> for RecordType<'_> {
     fn from(src: (Record, Attachments)) -> Self {
-        Self::RecordWithAttachs {
+        Self::RecordWithAttaches {
             record: src.0,
-            attachs: src.1,
+            attaches: src.1,
         }
     }
 }
 
 impl<'a> From<(&'a Record, Attachments)> for RecordType<'a> {
     fn from(src: (&'a Record, Attachments)) -> Self {
-        Self::RecordRefWithAttachs {
+        Self::RecordRefWithAttaches {
             record: src.0,
-            attachs: src.1,
+            attaches: src.1,
         }
     }
 }

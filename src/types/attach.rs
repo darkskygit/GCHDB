@@ -15,10 +15,10 @@ impl<'a> Attachment {
             id: None,
             record_id: match record.into() {
                 RecordType::Id(id) => id,
-                RecordType::Record(record) | RecordType::RecordWithAttachs { record, .. } => {
+                RecordType::Record(record) | RecordType::RecordWithAttaches { record, .. } => {
                     record.get_id()
                 }
-                RecordType::RecordRef(record) | RecordType::RecordRefWithAttachs { record, .. } => {
+                RecordType::RecordRef(record) | RecordType::RecordRefWithAttaches { record, .. } => {
                     record.get_id()
                 }
             },

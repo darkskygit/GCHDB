@@ -1,6 +1,6 @@
 [package]
 name = "gchdb"
-version = "0.2.7"
+version = "0.2.8"
 authors = ["DarkSky <darksky2048@gmail.com>"]
 edition = "2018"
 license-file = "LICENSE"
@@ -18,7 +18,7 @@ futures = "0.3.21"
 lazy_static = "1.4.0"
 log = "0.4.17"
 num_cpus = "1.13.1"
-sha3 = "0.9.1"
+sha3 = "0.10.1"
 thiserror = "1.0.31"
 
 [dependencies.diesel]

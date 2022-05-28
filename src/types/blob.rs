@@ -1,7 +1,7 @@
 use super::*;
 use lazy_static::lazy_static;
 use sha3::{
-    digest::{ExtendableOutputDirty, Reset, Update},
+    digest::{ExtendableOutput, Reset, Update},
     Shake256,
 };
 use std::io::Read;
@@ -29,11 +29,11 @@ impl Blob {
         i64::from_ne_bytes(
             {
                 let mut hasher = HASHER.lock().unwrap();
-                hasher.update(data);
-                let mut ret = hasher.clone();
+                hasher.update(data.as_ref());
+                let ret = hasher.clone();
                 hasher.reset();
                 let mut buf = vec![0u8; 8];
-                if ret.finalize_xof_dirty().read(&mut buf).is_err() {
+                if ret.finalize_xof().read(&mut buf).is_err() {
                     buf = vec![0u8, 8];
                 }
                 buf
