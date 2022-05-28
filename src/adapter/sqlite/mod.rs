@@ -8,7 +8,7 @@ use blob::{get_blob, insert_blob, remove_blob};
 use record::{get_record_id, insert_or_update_record, remove_record, remove_record_by_id};
 use std::collections::HashMap;
 
-use anyhow::*;
+use anyhow::Context;
 use diesel::{
     dsl::{delete, exists, insert_into, select, update},
     prelude::*,
@@ -127,7 +127,7 @@ fn default_metadata_merger(
     Some(new)
 }
 
-impl<'a> ChatRecoder<'a> for SqliteChatRecorder {
+impl<'a> ChatRecorder<'a> for SqliteChatRecorder {
     fn insert_or_update_record<R>(
         &mut self,
         record: R,

@@ -19,7 +19,7 @@ pub type Attachments = HashMap<String, Vec<u8>>;
 
 pub type MetadataMerger<C> = fn(&C, &Attachments, Vec<u8>, Vec<u8>) -> Option<Vec<u8>>;
 
-pub trait ChatRecoder<'a> {
+pub trait ChatRecorder<'a> {
     fn insert_or_update_record<R>(
         &mut self,
         record: R,

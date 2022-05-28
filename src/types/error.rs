@@ -1,6 +1,6 @@
 use diesel::{r2d2::PoolError, result::Error as DieselError};
 use tantivy::{query::QueryParserError, TantivyError};
-use thiserror::*;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ChatRecordError {
@@ -13,7 +13,7 @@ pub enum ChatRecordError {
     #[error("{0:?}")]
     TantivyQueryError(QueryParserError),
     #[error(transparent)]
-    ContextedError(#[from] anyhow::Error),
+    ContextError(#[from] anyhow::Error),
 }
 
 impl From<TantivyError> for ChatRecordError {
