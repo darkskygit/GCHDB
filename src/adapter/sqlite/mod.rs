@@ -5,11 +5,13 @@ mod record;
 use super::*;
 use attach::{insert_or_update_attach, remove_attachs};
 use blob::{get_blob, insert_blob, remove_blob};
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
 use record::{get_record_id, insert_or_update_record, remove_record, remove_record_by_id};
 use std::collections::HashMap;
 
 use anyhow::Context;
 use diesel::{
+    connection::SimpleConnection,
     dsl::{delete, exists, insert_into, select, update},
     prelude::*,
     r2d2::{ConnectionManager, Pool},
@@ -18,7 +20,7 @@ use diesel::{
 };
 use std::path::Path;
 
-embed_migrations!("migrations");
+const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 
 pub struct SqliteChatRecorder {
     conn: Pool<ConnectionManager<SqliteConnection>>,
@@ -33,17 +35,19 @@ impl SqliteChatRecorder {
         let pool = Pool::builder()
             .build(manager)
             .context("Failed to create pool")?;
-        let executor = pool.get().unwrap();
+        let mut executor = pool.get().unwrap();
         executor
-            .execute("PRAGMA journal_mode = WAL;")
+            .batch_execute("PRAGMA journal_mode = WAL;")
             .context("Failed to init WAL mode")?;
-        embedded_migrations::run(&executor).context("Failed to init database")?;
-        let mut recoder = Self {
+        executor
+            .run_pending_migrations(MIGRATIONS)
+            .expect("Failed to init database");
+        let mut recorder = Self {
             conn: pool,
             indexer: ContentIndexer::new()?,
         };
-        recoder.refresh_index()?;
-        Ok(recoder)
+        recorder.refresh_index()?;
+        Ok(recorder)
     }
 
     pub fn refresh_index(&mut self) -> ChatRecordResult<()> {
@@ -54,7 +58,7 @@ impl SqliteChatRecorder {
 
     fn record_all(&self) -> ChatRecordResult<Vec<Record>> {
         use schema::records::dsl::*;
-        Ok(records.load::<Record>(&self.conn.get()?)?)
+        Ok(records.load::<Record>(&mut self.conn.get()?)?)
     }
 
     fn record_query(&self, query: Query) -> ChatRecordResult<Vec<Record>> {
@@ -71,7 +75,7 @@ impl SqliteChatRecorder {
                     query.get_limit(),
                     keyword,
                 )?))
-                .load::<Record>(&self.conn.get()?)?
+                .load::<Record>(&mut self.conn.get()?)?
         } else {
             default_query
                 .filter(
@@ -84,7 +88,7 @@ impl SqliteChatRecorder {
                 )
                 .offset(query.get_offset())
                 .limit(query.get_limit())
-                .load::<Record>(&self.conn.get()?)?
+                .load::<Record>(&mut self.conn.get()?)?
         })
     }
 
@@ -94,27 +98,28 @@ impl SqliteChatRecorder {
         attachs: HashMap<String, Vec<u8>>,
         merger: MetadataMerger<Self>,
     ) -> ChatRecordResult<bool> {
-        let conn = self.conn.get()?;
+        let mut conn = self.conn.get()?;
         Ok(
-            insert_or_update_record(&conn, self, record, &attachs, merger)? && {
+            insert_or_update_record(&mut conn, self, record, &attachs, merger)? && {
                 let mut len = 0;
-                let record_id = get_record_id(&conn, &record)?;
+                let record_id = get_record_id(&mut conn, &record)?;
                 if record_id > 0 {
                     for (name, blob) in attachs.iter() {
-                        insert_or_update_attach(&conn, blob.clone(), name.clone(), record_id)?;
+                        insert_or_update_attach(&mut conn, blob.clone(), name.clone(), record_id)?;
                         len += 1;
                     }
                     len
                 } else {
                     0
                 }
-            } == attachs.len(),
+            } == attachs
+                .len(),
         )
     }
 
     pub fn get_blob(&self, hash: i64) -> ChatRecordResult<Vec<u8>> {
-        let conn = self.conn.get()?;
-        get_blob(&conn, hash)
+        let mut conn = self.conn.get()?;
+        get_blob(&mut conn, hash)
     }
 }
 
@@ -145,24 +150,28 @@ impl<'a> ChatRecorder<'a> for SqliteChatRecorder {
             RecordType::RecordRef(record) => {
                 self.record_auto_insert(record, Default::default(), merger)?
             }
-            RecordType::RecordWithAttaches { record, attaches: attachs } => {
-                self.record_auto_insert(&record, attachs, merger)?
-            }
-            RecordType::RecordRefWithAttaches { record, attaches: attachs } => {
-                self.record_auto_insert(record, attachs, merger)?
-            }
+            RecordType::RecordWithAttaches {
+                record,
+                attaches: attachs,
+            } => self.record_auto_insert(&record, attachs, merger)?,
+            RecordType::RecordRefWithAttaches {
+                record,
+                attaches: attachs,
+            } => self.record_auto_insert(record, attachs, merger)?,
         })
     }
 
     fn remove_record<R: Into<RecordType<'a>>>(&mut self, record: R) -> ChatRecordResult<bool> {
-        let conn = self.conn.get()?;
+        let mut conn = self.conn.get()?;
         Ok(match record.into() {
-            RecordType::Id(id) => remove_record_by_id(&conn, id)? == 1,
+            RecordType::Id(id) => remove_record_by_id(&mut conn, id)? == 1,
             RecordType::Record(record) | RecordType::RecordWithAttaches { record, .. } => {
-                remove_record(&conn, &record)? == 1 && remove_attachs(&conn, record.get_id())?
+                remove_record(&mut conn, &record)? == 1
+                    && remove_attachs(&mut conn, record.get_id())?
             }
             RecordType::RecordRef(record) | RecordType::RecordRefWithAttaches { record, .. } => {
-                remove_record(&conn, &record)? == 1 && remove_attachs(&conn, record.get_id())?
+                remove_record(&mut conn, &record)? == 1
+                    && remove_attachs(&mut conn, record.get_id())?
             }
         })
     }

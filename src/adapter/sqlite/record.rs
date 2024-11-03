@@ -5,7 +5,7 @@ enum RecordExistence {
     NotExist,
 }
 
-fn check_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<RecordExistence> {
+fn check_record(conn: &mut SqliteConnection, record: &Record) -> ChatRecordResult<RecordExistence> {
     use schema::records::dsl::*;
     match records
         .filter(
@@ -25,7 +25,7 @@ fn check_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<Re
     }
 }
 
-fn update_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<usize> {
+fn update_record(conn: &mut SqliteConnection, record: &Record) -> ChatRecordResult<usize> {
     use schema::records::dsl::*;
     Ok(update(
         records.filter(
@@ -45,19 +45,19 @@ fn update_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<u
     .execute(conn)?)
 }
 
-fn insert_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<usize> {
+fn insert_record(conn: &mut SqliteConnection, record: &Record) -> ChatRecordResult<usize> {
     Ok(insert_into(records::table).values(record).execute(conn)?)
 }
 
 pub fn insert_or_update_record(
-    conn: &SqliteConnection,
+    conn: &mut SqliteConnection,
     recorder: &SqliteChatRecorder,
     record: &Record,
     attachs: &HashMap<String, Vec<u8>>,
     metadata_merger: MetadataMerger<SqliteChatRecorder>,
 ) -> ChatRecordResult<bool> {
     Ok(
-        if let RecordExistence::Exist(old_metadata) = check_record(&conn, &record)? {
+        if let RecordExistence::Exist(old_metadata) = check_record(conn, &record)? {
             let mut record = record.clone();
             if let Some(metadata) = record.metadata {
                 record.metadata = if let Some(old_metadata) = old_metadata {
@@ -75,7 +75,7 @@ pub fn insert_or_update_record(
     )
 }
 
-pub fn remove_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<usize> {
+pub fn remove_record(conn: &mut SqliteConnection, record: &Record) -> ChatRecordResult<usize> {
     use schema::records::{dsl::*, table};
     Ok(delete(table)
         .filter(
@@ -88,13 +88,13 @@ pub fn remove_record(conn: &SqliteConnection, record: &Record) -> ChatRecordResu
         .execute(conn)?)
 }
 
-pub fn remove_record_by_id(conn: &SqliteConnection, id: i32) -> ChatRecordResult<usize> {
+pub fn remove_record_by_id(conn: &mut SqliteConnection, id: i32) -> ChatRecordResult<usize> {
     Ok(delete(records::table)
         .filter(records::id.eq(Some(id)))
         .execute(conn)?)
 }
 
-pub fn get_record_id(conn: &SqliteConnection, record: &Record) -> ChatRecordResult<i32> {
+pub fn get_record_id(conn: &mut SqliteConnection, record: &Record) -> ChatRecordResult<i32> {
     use schema::records::dsl::*;
     Ok(records
         .filter(
