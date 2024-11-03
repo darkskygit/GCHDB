@@ -54,10 +54,10 @@ pub fn insert_or_update_attach_inner(
     conn: &mut SqliteConnection,
     attach: &Attachment,
 ) -> ChatRecordResult<bool> {
-    Ok(if check_attach(conn, &attach)? {
-        update_attach(conn, &attach)
+    Ok(if check_attach(conn, attach)? {
+        update_attach(conn, attach)
     } else {
-        insert_attach(conn, &attach)
+        insert_attach(conn, attach)
     }? == 1)
 }
 

@@ -1,5 +1,5 @@
 use super::*;
-use tantivy::{schema::*, Document};
+use tantivy::schema::*;
 
 pub struct Fields {
     pub idx: Field,
@@ -27,7 +27,7 @@ impl Fields {
                         .set_index_option(IndexRecordOption::WithFreqsAndPositions),
                 ),
             ),
-            timestamp: schema_builder.add_u64_field("timestamp", FAST),
+            timestamp: schema_builder.add_i64_field("timestamp", FAST),
             custom: custom_field,
             schema: schema_builder.build(),
         }
@@ -41,11 +41,11 @@ impl Default for Fields {
 }
 
 pub trait GetDocument {
-    fn get_document(&self, fields: &Fields) -> ChatRecordResult<Document>;
+    fn get_document(&self, fields: &Fields) -> ChatRecordResult<TantivyDocument>;
 }
 
 impl GetDocument for Record {
-    fn get_document(&self, fields: &Fields) -> ChatRecordResult<Document> {
+    fn get_document(&self, fields: &Fields) -> ChatRecordResult<TantivyDocument> {
         Ok(doc! {
             fields.idx => self.get_id() as i64,
             fields.content => self.content.as_str(),

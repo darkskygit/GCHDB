@@ -1,8 +1,8 @@
 use super::*;
 use std::time::Instant;
 use tantivy::{
-    collector::TopDocs, query::QueryParser, schema::Schema, Index, IndexReader, IndexWriter,
-    ReloadPolicy,
+    collector::TopDocs, query::QueryParser, schema::Schema, Index, IndexReader, IndexWriter, Order,
+    ReloadPolicy, TantivyDocument,
 };
 
 pub struct ContentIndexer {
@@ -39,7 +39,7 @@ impl ContentIndexer {
     fn get_index_writer(index: &Index) -> ChatRecordResult<IndexWriter> {
         let num = num_cpus::get();
         info!("Indexing thread num: {}", num);
-        Ok(index.writer_with_num_threads(num, num * 10_000_000)?)
+        Ok(index.writer_with_num_threads(num, num * 20_000_000)?)
     }
 
     pub fn cleanup_index(&mut self) -> ChatRecordResult<()> {
@@ -54,7 +54,7 @@ impl ContentIndexer {
         let mut sw = Instant::now();
         for (i, metadata) in records.iter().enumerate() {
             self.writer
-                .add_document(metadata.get_document(&self.fields)?);
+                .add_document(metadata.get_document(&self.fields)?)?;
             if total > 200.0 && i as f64 / total - last_parent >= 0.01 {
                 last_parent = i as f64 / total;
                 debug!(
@@ -89,19 +89,22 @@ impl ContentIndexer {
                 )
                 .parse_query(query)?,
                 &TopDocs::with_limit(offset + limit as usize)
-                    .order_by_u64_field(self.fields.timestamp),
+                    .order_by_u64_field("timestamp", Order::Desc),
             )?
             .iter()
             .skip(offset)
             .filter_map(|(_score, doc_address)| {
-                use tantivy::schema::Value;
-                searcher.doc(*doc_address).ok().and_then(|doc| {
-                    doc.get_first(self.fields.idx).and_then(|val| match val {
-                        Value::U64(val) => Some(*val as i32),
-                        Value::I64(val) => Some(*val as i32),
-                        _ => None,
+                use tantivy::schema::OwnedValue;
+                searcher
+                    .doc::<TantivyDocument>(*doc_address)
+                    .ok()
+                    .and_then(|doc| {
+                        doc.get_first(self.fields.idx).and_then(|val| match val {
+                            OwnedValue::U64(val) => Some(*val as i32),
+                            OwnedValue::I64(val) => Some(*val as i32),
+                            _ => None,
+                        })
                     })
-                })
             })
             .collect())
     }

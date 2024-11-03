@@ -15,7 +15,7 @@ pub fn insert_blob(conn: &mut SqliteConnection, blob: &Blob) -> ChatRecordResult
     Ok(if check_blob(conn, blob.hash)? {
         true
     } else {
-        insert_blob_inner(conn, &blob)? == 1
+        insert_blob_inner(conn, blob)? == 1
     })
 }
 

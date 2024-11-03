@@ -102,7 +102,7 @@ impl SqliteChatRecorder {
         Ok(
             insert_or_update_record(&mut conn, self, record, &attachs, merger)? && {
                 let mut len = 0;
-                let record_id = get_record_id(&mut conn, &record)?;
+                let record_id = get_record_id(&mut conn, record)?;
                 if record_id > 0 {
                     for (name, blob) in attachs.iter() {
                         insert_or_update_attach(&mut conn, blob.clone(), name.clone(), record_id)?;
@@ -170,7 +170,7 @@ impl<'a> ChatRecorder<'a> for SqliteChatRecorder {
                     && remove_attachs(&mut conn, record.get_id())?
             }
             RecordType::RecordRef(record) | RecordType::RecordRefWithAttaches { record, .. } => {
-                remove_record(&mut conn, &record)? == 1
+                remove_record(&mut conn, record)? == 1
                     && remove_attachs(&mut conn, record.get_id())?
             }
         })
@@ -182,8 +182,8 @@ impl<'a> ChatRecorder<'a> for SqliteChatRecorder {
 }
 
 #[test]
-fn test_chat_record() -> ChatRecordResult<()> {
-    let mut recoder = SqliteChatRecorder::new("record.db")?;
+fn test_chat_record() {
+    let mut recorder = SqliteChatRecorder::new("record.db").unwrap();
     let record = Record {
         chat_type: "testaasdavxz".into(),
         owner_id: "asdasdasdaaaa".into(),
@@ -193,10 +193,16 @@ fn test_chat_record() -> ChatRecordResult<()> {
         content:
             "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途"
                 .into(),
-        timestamp: chrono::Local::now().naive_utc().and_utc().timestamp_millis(),
+        timestamp: chrono::Local::now()
+            .naive_utc()
+            .and_utc()
+            .timestamp_millis(),
         ..Default::default()
     };
-    assert_eq!(recoder.insert_or_update_record(&record, None)?, true);
+    assert_eq!(
+        recorder.insert_or_update_record(&record, None).unwrap(),
+        true
+    );
     let record1 = Record {
         chat_type: "testaasdavxz".into(),
         owner_id: "asdasdasdaaaa".into(),
@@ -204,38 +210,46 @@ fn test_chat_record() -> ChatRecordResult<()> {
         sender_id: "news".into(),
         sender_name: "新闻".into(),
         content: "Intel线路图显示他们想恢复两年升级一次工艺，2029年有1.4nm".into(),
-        timestamp: chrono::Local::now().naive_utc().and_utc().timestamp_millis(),
+        timestamp: chrono::Local::now()
+            .naive_utc()
+            .and_utc()
+            .timestamp_millis(),
         ..Default::default()
     };
     assert_eq!(
-        recoder.insert_or_update_record(
-            (
-                &record1,
-                [("test".into(), vec![0, 1, 2, 3])]
-                    .iter()
-                    .cloned()
-                    .collect()
-            ),
-            None
-        )?,
+        recorder
+            .insert_or_update_record(
+                (
+                    &record1,
+                    [("test".into(), vec![0, 1, 2, 3])]
+                        .iter()
+                        .cloned()
+                        .collect()
+                ),
+                None
+            )
+            .unwrap(),
         true
     );
-    recoder.refresh_index()?;
+    recorder.refresh_index().unwrap();
     println!(
         "{:?}",
-        recoder.get_record(Query {
-            chat_type: Some("testaasdavxz".into()),
-            sender_name: Some("%日报".into()),
-            ..Default::default()
-        })?
+        recorder
+            .get_record(Query {
+                chat_type: Some("testaasdavxz".into()),
+                sender_name: Some("%日报".into()),
+                ..Default::default()
+            })
+            .unwrap()
     );
     println!(
         "{:?}",
-        recoder.get_record(Query {
-            keyword: Some("技术学校".into()),
-            ..Default::default()
-        })?
+        recorder
+            .get_record(Query {
+                keyword: Some("技术学校".into()),
+                ..Default::default()
+            })
+            .unwrap()
     );
-    assert_eq!(recoder.remove_record(&record)?, true);
-    Ok(())
+    assert_eq!(recorder.remove_record(&record).unwrap(), true);
 }

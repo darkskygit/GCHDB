@@ -57,7 +57,7 @@ pub fn insert_or_update_record(
     metadata_merger: MetadataMerger<SqliteChatRecorder>,
 ) -> ChatRecordResult<bool> {
     Ok(
-        if let RecordExistence::Exist(old_metadata) = check_record(conn, &record)? {
+        if let RecordExistence::Exist(old_metadata) = check_record(conn, record)? {
             let mut record = record.clone();
             if let Some(metadata) = record.metadata {
                 record.metadata = if let Some(old_metadata) = old_metadata {
@@ -70,7 +70,7 @@ pub fn insert_or_update_record(
             }
             update_record(conn, &record)
         } else {
-            insert_record(conn, &record)
+            insert_record(conn, record)
         }? == 1,
     )
 }

@@ -1,42 +1,24 @@
-[package]
-name = "gchdb"
-version = "0.2.8"
-authors = ["DarkSky <darksky2048@gmail.com>"]
-edition = "2018"
-license-file = "LICENSE"
-keywords = ["chat", "database", "backup", "full-text"]
-description = "Provides a record abstraction for storing chat records extracted by different chat software, and provides full-text search feature"
-repository = "https://github.com/darkskygit/GCHDB"
-readme = "README.md"
+[workspace]
+resolver = "2"
+members = ["packages/gchdb"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[dependencies]
-anyhow = "1.0.92"
-cang-jie = "0.13.0"
-chrono = "0.4.38"
-futures = "0.3.31"
-lazy_static = "1.4.0"
-log = "0.4.22"
-num_cpus = "1.16.0"
-sha3 = "0.10.8"
+[workspace.dependencies]
+log = { version = "0.4.22", features = [
+    "max_level_trace",
+    "release_max_level_info",
+] }
+serde = { version = "1.0.214", features = ["derive"] }
+tantivy = { version = "0.22.0", default-features = false, features = [
+    "lz4-compression",
+] }
 thiserror = "1.0.66"
 
-[dependencies.diesel]
-version = "2.2.4"
-features = ["chrono", "r2d2", "sqlite"]
+cang-jie = { git = "https://github.com/darkskygit/cang-jie" }
+gchdb = { path = "./packages/gchdb" }
 
-[dependencies.diesel_migrations]
-version = "2.2.0"
-
-[dependencies.libsqlite3-sys]
-version = "0.30.1"
-features = ["bundled"]
-
-[dependencies.serde]
-version = "1.0.214"
-features = ["derive"]
-
-[dependencies.tantivy]
-version = "0.16.1"
-default-features = false
-features = ["lz4-compression"]
+[profile.release]
+lto = true
+panic = "abort"
+# opt-level = "z"
+codegen-units = 1
+incremental = false

@@ -50,7 +50,7 @@ impl<'a> RecordType<'a> {
     pub fn get_record(&'a self) -> Option<&'a Record> {
         match self {
             RecordType::Record(record) | RecordType::RecordWithAttaches { record, .. } => {
-                Some(&record)
+                Some(record)
             }
             RecordType::RecordRef(record) | RecordType::RecordRefWithAttaches { record, .. } => {
                 Some(record)
