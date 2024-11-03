@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Queryable, Insertable, Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
-#[table_name = "records"]
+#[diesel(table_name = records)]
 pub struct Record {
     pub id: Option<i32>,
     pub chat_type: String,

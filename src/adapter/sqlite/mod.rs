@@ -193,7 +193,7 @@ fn test_chat_record() -> ChatRecordResult<()> {
         content:
             "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途"
                 .into(),
-        timestamp: chrono::Local::now().naive_utc().timestamp_millis(),
+        timestamp: chrono::Local::now().naive_utc().and_utc().timestamp_millis(),
         ..Default::default()
     };
     assert_eq!(recoder.insert_or_update_record(&record, None)?, true);
@@ -204,7 +204,7 @@ fn test_chat_record() -> ChatRecordResult<()> {
         sender_id: "news".into(),
         sender_name: "新闻".into(),
         content: "Intel线路图显示他们想恢复两年升级一次工艺，2029年有1.4nm".into(),
-        timestamp: chrono::Local::now().naive_utc().timestamp_millis(),
+        timestamp: chrono::Local::now().naive_utc().and_utc().timestamp_millis(),
         ..Default::default()
     };
     assert_eq!(

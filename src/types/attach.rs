@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Queryable, Insertable, Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
-#[table_name = "attachments"]
+#[diesel(table_name = attachments)]
 pub struct Attachment {
     pub id: Option<i32>,
     pub record_id: i32,

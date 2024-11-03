@@ -8,7 +8,7 @@ use std::io::Read;
 use std::sync::{Arc, Mutex};
 
 #[derive(Queryable, Insertable, Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
-#[table_name = "blobs"]
+#[diesel(table_name = blobs)]
 pub struct Blob {
     pub hash: i64,
     pub blob: Vec<u8>,
